@@ -2,6 +2,7 @@ package com.eva.app.data.api
 
 import retrofit2.Response
 import retrofit2.http.*
+import retrofit2.http.PATCH
 
 interface EvaApi {
 
@@ -13,6 +14,9 @@ interface EvaApi {
 
     @GET("auth/me")
     suspend fun getMe(): Response<UserProfileResponse>
+
+    @PATCH("auth/me")
+    suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<UserProfileResponse>
 
     @GET("doctors")
     suspend fun getDoctors(

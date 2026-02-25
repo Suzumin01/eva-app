@@ -90,7 +90,6 @@ fun LoginScreen(
         if (state is AuthState.Success) { viewModel.resetStates(); onLoginSuccess() }
     }
 
-    // Градиент на весь экран
     Box(
         modifier = Modifier
             .fillMaxSize()
@@ -109,7 +108,6 @@ fun LoginScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Логотип
             Spacer(Modifier.height(72.dp))
             Surface(
                 shape = RoundedCornerShape(28.dp),
@@ -129,7 +127,6 @@ fun LoginScreen(
 
             Spacer(Modifier.height(48.dp))
 
-            // Форма — поверх градиента, полупрозрачная
             Card(
                 modifier = Modifier
                     .fillMaxWidth()

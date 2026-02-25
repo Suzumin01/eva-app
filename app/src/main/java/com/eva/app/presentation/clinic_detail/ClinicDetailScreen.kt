@@ -43,11 +43,9 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
             .fillMaxSize()
             .verticalScroll(rememberScrollState())) {
 
-            // Карта
             if (hasCoords) {
                 val lat = clinic.latitude!!.toDouble()
                 val lon = clinic.longitude!!.toDouble()
-                // HTML с Leaflet.js — работает без API ключа, не требует cleartext
                 val mapHtml = """
                     <!DOCTYPE html>
                     <html><head>
@@ -116,7 +114,6 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
                 }
             }
 
-            // Информация
             Card(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 6.dp),

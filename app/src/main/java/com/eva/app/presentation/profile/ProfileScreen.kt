@@ -1,5 +1,6 @@
 package com.eva.app.presentation.profile
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -23,10 +24,7 @@ import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -42,13 +40,8 @@ class ProfileViewModel @Inject constructor(
     private val _loggedOut = MutableStateFlow(false)
     val loggedOut = _loggedOut.asStateFlow()
 
-    // Согласия берём из локального хранилища — единый источник правды
-    val consentMedical = tokenManager.consentMedical
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val consentAi      = tokenManager.consentAi
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
-    val consentPrivacy = tokenManager.consentPrivacy
-        .stateIn(viewModelScope, SharingStarted.Eagerly, false)
+    val cachedName = tokenManager.userName
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     init { loadProfile() }
 
@@ -56,7 +49,10 @@ class ProfileViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             when (val r = authRepository.getMe()) {
-                is Resource.Success -> _profile.value = r.data
+                is Resource.Success -> {
+                    _profile.value = r.data
+                    tokenManager.saveUserName(r.data.fullName)
+                }
                 else -> {}
             }
             _isLoading.value = false
@@ -74,18 +70,20 @@ class ProfileViewModel @Inject constructor(
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
-    onOpenConsent: () -> Unit = {},
+    onOpenMedicalCard: () -> Unit = {},
+    onOpenSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val profile        by viewModel.profile.collectAsState()
-    val isLoading      by viewModel.isLoading.collectAsState()
-    val loggedOut      by viewModel.loggedOut.collectAsState()
-    val consentMedical by viewModel.consentMedical.collectAsState()
-    val consentAi      by viewModel.consentAi.collectAsState()
-    val consentPrivacy by viewModel.consentPrivacy.collectAsState()
+    val profile    by viewModel.profile.collectAsState()
+    val isLoading  by viewModel.isLoading.collectAsState()
+    val loggedOut  by viewModel.loggedOut.collectAsState()
+    val cachedName by viewModel.cachedName.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
 
     LaunchedEffect(loggedOut) { if (loggedOut) onLogout() }
+
+    val displayName = profile?.fullName ?: cachedName
+    val displayEmail = profile?.email
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -94,8 +92,7 @@ fun ProfileScreen(
             text  = { Text("Вы будете перенаправлены на экран входа.") },
             confirmButton = {
                 Button(onClick = { showLogoutDialog = false; viewModel.logout() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error)) {
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
                     Text("Выйти")
                 }
             },
@@ -106,14 +103,11 @@ fun ProfileScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
+        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Spacer(Modifier.height(16.dp))
 
-        // Аватар
         Surface(shape = RoundedCornerShape(28.dp),
             color = MaterialTheme.colorScheme.primaryContainer,
             modifier = Modifier.size(96.dp)) {
@@ -124,108 +118,70 @@ fun ProfileScreen(
         }
         Spacer(Modifier.height(12.dp))
 
-        if (isLoading) {
-            CircularProgressIndicator()
+        if (isLoading && displayName == null) {
+            CircularProgressIndicator(modifier = Modifier.size(24.dp))
         } else {
-            profile?.let { p ->
-                Text(p.fullName, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                Text(p.email, style = MaterialTheme.typography.bodyMedium,
+            displayName?.let {
+                Text(it, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            }
+            displayEmail?.let {
+                Text(it, style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-                // роль убрана
             }
         }
 
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(28.dp))
 
-        // Личные данные
-        profile?.let { p ->
-            Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                Column(modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Text("Личные данные", fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    HorizontalDivider()
-                    ProfileRow(Icons.Default.Person,  "Имя",      p.fullName)
-                    ProfileRow(Icons.Default.Email,   "Email",    p.email)
-                    p.phone?.let { ProfileRow(Icons.Default.Phone, "Телефон", it) }
-                }
-            }
-        }
-
-        Spacer(Modifier.height(12.dp))
-
-        // Блок согласий — из локального TokenManager
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            Column(modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Row(modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text("Согласия", fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
-                    TextButton(onClick = onOpenConsent) {
-                        Text("Изменить", style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-                HorizontalDivider()
-                ConsentRow(Icons.Default.MedicalServices,
-                    "Обработка медицинских данных", consentMedical)
-                ConsentRow(Icons.Default.Shield,
-                    "Политика конфиденциальности",  consentPrivacy)
-                ConsentRow(Icons.Default.AutoAwesome,
-                    "AI-анализ симптомов",           consentAi)
-            }
-        }
-
-        Spacer(Modifier.height(24.dp))
-
-        OutlinedButton(
-            onClick  = { showLogoutDialog = true },
-            colors   = ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error),
-            modifier = Modifier.fillMaxWidth().height(50.dp),
-            shape    = RoundedCornerShape(14.dp)
-        ) {
-            Icon(Icons.Default.Logout, null)
-            Spacer(Modifier.width(8.dp))
-            Text("Выйти из аккаунта")
-        }
-
-        Spacer(Modifier.height(16.dp))
-    }
-}
-
-@Composable
-fun ProfileRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(18.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(10.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodyMedium)
-        }
-    }
-}
-
-@Composable
-fun ConsentRow(icon: ImageVector, label: String, granted: Boolean) {
-    Row(modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Icon(icon, null, modifier = Modifier.size(16.dp),
-                tint = if (granted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.bodySmall)
-        }
-        Icon(
-            if (granted) Icons.Default.CheckCircle else Icons.Default.Cancel,
-            null,
-            tint = if (granted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(20.dp)
+        ProfileActionCard(
+            icon     = Icons.Default.HealthAndSafety,
+            label    = "Медицинская карта",
+            subtitle = "История приёмов и AI-анализов",
+            color    = MaterialTheme.colorScheme.primaryContainer,
+            iconTint = MaterialTheme.colorScheme.primary,
+            onClick  = onOpenMedicalCard
         )
+        Spacer(Modifier.height(10.dp))
+        ProfileActionCard(
+            icon     = Icons.Default.Settings,
+            label    = "Настройки",
+            subtitle = "Профиль, согласия, тема оформления",
+            color    = MaterialTheme.colorScheme.secondaryContainer,
+            iconTint = MaterialTheme.colorScheme.secondary,
+            onClick  = onOpenSettings
+        )
+        Spacer(Modifier.height(10.dp))
+        ProfileActionCard(
+            icon     = Icons.Default.Logout,
+            label    = "Выйти из аккаунта",
+            subtitle = "Вернуться на экран входа",
+            color    = MaterialTheme.colorScheme.errorContainer,
+            iconTint = MaterialTheme.colorScheme.error,
+            onClick  = { showLogoutDialog = true }
+        )
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+@Composable
+fun ProfileActionCard(
+    icon: ImageVector, label: String, subtitle: String,
+    color: Color, iconTint: Color, onClick: () -> Unit
+) {
+    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(1.dp)) {
+        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(12.dp), color = color, modifier = Modifier.size(48.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = iconTint, modifier = Modifier.size(26.dp))
+                }
+            }
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
+                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
     }
 }

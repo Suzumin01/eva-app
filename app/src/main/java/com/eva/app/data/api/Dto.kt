@@ -34,6 +34,11 @@ data class UserProfileResponse(
     val consentAi: Boolean
 )
 
+data class UpdateProfileRequest(
+    val fullName: String?,
+    val phone: String?
+)
+
 data class DoctorResponse(
     val doctorId: Int,
     val fullName: String,

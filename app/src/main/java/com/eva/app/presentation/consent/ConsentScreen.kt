@@ -49,14 +49,18 @@ class ConsentViewModel @Inject constructor(
 
 @Composable
 fun ConsentScreen(
-    onDone: () -> Unit,          // в обоих случаях (принял / пропустил) идём на Home
+    onDone: () -> Unit,
     viewModel: ConsentViewModel = hiltViewModel()
 ) {
-    var medicalChecked by remember { mutableStateOf(false) }
-    var aiChecked      by remember { mutableStateOf(false) }
-    var privacyChecked by remember { mutableStateOf(false) }
+    val savedMedical by viewModel.consentMedical.collectAsState()
+    val savedAi      by viewModel.consentAi.collectAsState()
+    val savedPrivacy by viewModel.consentPrivacy.collectAsState()
 
-    val canProceed = medicalChecked && privacyChecked   // AI — необязательно
+    var medicalChecked by remember(savedMedical) { mutableStateOf(savedMedical) }
+    var aiChecked      by remember(savedAi)      { mutableStateOf(savedAi) }
+    var privacyChecked by remember(savedPrivacy) { mutableStateOf(savedPrivacy) }
+
+    val canProceed = medicalChecked && privacyChecked
 
     Box(
         modifier = Modifier.fillMaxSize()
@@ -135,8 +139,6 @@ fun ConsentScreen(
 
                     Spacer(Modifier.height(10.dp))
 
-                    // Кнопка «Пропустить» — сохраняет false, переходит в приложение
-                    // Защищённые функции сами спросят согласие при необходимости
                     OutlinedButton(
                         onClick  = { viewModel.save(false, false, false) { onDone() } },
                         modifier = Modifier.fillMaxWidth().height(48.dp),

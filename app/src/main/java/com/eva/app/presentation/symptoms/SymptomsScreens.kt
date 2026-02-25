@@ -93,13 +93,11 @@ fun SymptomsScreen(
     val userId    by viewModel.userId.collectAsState(initial = null)
     var selected  by remember { mutableStateOf<SymptomsHistoryResponse?>(null) }
 
-    // Перезагружаем историю при смене пользователя
     LaunchedEffect(userId) {
         viewModel.clearHistory()
         if (userId != null) viewModel.loadHistory()
     }
 
-    // Диалог с деталями элемента истории
     selected?.let { item ->
         AlertDialog(
             onDismissRequest = { selected = null },

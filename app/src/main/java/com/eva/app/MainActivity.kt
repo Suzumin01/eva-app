@@ -3,13 +3,14 @@ package com.eva.app
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.ViewModel
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -29,17 +30,22 @@ import com.eva.app.presentation.consent.MedicalConsentGate
 import com.eva.app.presentation.doctors.DoctorDetailScreen
 import com.eva.app.presentation.doctors.DoctorsScreen
 import com.eva.app.presentation.home.HomeScreen
+import com.eva.app.presentation.medical_card.MedicalCardScreen
 import com.eva.app.presentation.navigation.Screen
 import com.eva.app.presentation.notifications.NotificationDetailScreen
 import com.eva.app.presentation.notifications.NotificationsScreen
 import com.eva.app.presentation.notifications.NotificationsViewModel
+import com.eva.app.presentation.onboarding.OnboardingScreen
 import com.eva.app.presentation.profile.ProfileScreen
+import com.eva.app.presentation.settings.EditProfileScreen
+import com.eva.app.presentation.settings.SettingsScreen
 import com.eva.app.presentation.symptoms.SymptomsFormScreen
 import com.eva.app.presentation.symptoms.SymptomsResultScreen
 import com.eva.app.presentation.symptoms.SymptomsScreen
 import com.eva.app.presentation.symptoms.SymptomsViewModel
 import com.eva.app.ui.theme.EvaTheme
 import dagger.hilt.android.AndroidEntryPoint
+import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
@@ -50,12 +56,29 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        // Стартовый экран определяем только по токену —
-        // экран согласий показываем внутри навигации после входа
-        val hasToken = runBlocking { tokenManager.token.first() } != null
-        val start    = if (hasToken) Screen.Home.route else Screen.Login.route
-        setContent { EvaTheme { EvaApp(startDestination = start) } }
+        val hasToken       = runBlocking { tokenManager.token.first() } != null
+        val onboardingDone = runBlocking { tokenManager.onboardingDone.first() }
+        val consentShown   = runBlocking { tokenManager.consentShown.first() }
+
+        val start = when {
+            !onboardingDone -> Screen.Onboarding.route
+            !hasToken       -> Screen.Login.route
+            !consentShown   -> Screen.Consent.route
+            else            -> Screen.Home.route
+        }
+
+        setContent {
+            val darkTheme by tokenManager.darkTheme.collectAsState(initial = false)
+            EvaTheme(darkTheme = darkTheme) { EvaApp(startDestination = start) }
+        }
     }
+}
+
+@HiltViewModel
+class ConsentCheckViewModel @Inject constructor(
+    private val tokenManager: TokenManager
+) : ViewModel() {
+    val consentShown = tokenManager.consentShown
 }
 
 data class BottomItem(
@@ -86,7 +109,6 @@ fun EvaApp(startDestination: String) {
         Screen.Profile.route      to "Профиль"
     )
 
-    // SymptomsViewModel живёт на уровне Activity — Form и Result делят состояние
     val activity   = LocalContext.current as ComponentActivity
     val symptomsVm = androidx.hilt.navigation.compose.hiltViewModel<SymptomsViewModel>(activity)
 
@@ -133,13 +155,16 @@ fun EvaApp(startDestination: String) {
     ) { innerPadding ->
         NavHost(navController, startDestination, Modifier.padding(innerPadding)) {
 
+            composable(Screen.Onboarding.route) {
+                OnboardingScreen(onDone = {
+                    navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+                })
+            }
+
             composable(Screen.Login.route) {
                 LoginScreen(
                     onLoginSuccess = {
-                        // После входа — сразу на Home. Согласия покажем при первом
-                        // обращении к защищённым функциям (AiConsentGate / MedicalConsentGate)
-                        // Но сначала проверяем: если consent ещё ни разу не показывался — ведём на него
-                        navController.navigate(Screen.Consent.route) {
+                        navController.navigate(Screen.ConsentCheck.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
@@ -149,26 +174,29 @@ fun EvaApp(startDestination: String) {
             composable(Screen.Register.route) {
                 RegisterScreen(
                     onRegisterSuccess = {
-                        // После регистрации — логин уже выполнен в AuthViewModel,
-                        // ведём на Consent
-                        navController.navigate(Screen.Consent.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
+                        navController.navigate(Screen.Consent.route) { popUpTo(0) { inclusive = true } }
                     },
                     onBack = { navController.popBackStack() }
                 )
             }
 
-            // Показывается один раз после входа/регистрации.
-            // onDone всегда ведёт на Home — независимо от выбора пользователя.
+            composable(Screen.ConsentCheck.route) {
+                val vm = androidx.hilt.navigation.compose.hiltViewModel<ConsentCheckViewModel>()
+                val consentShown by vm.consentShown.collectAsState(initial = null)
+                LaunchedEffect(consentShown) {
+                    val shown = consentShown ?: return@LaunchedEffect
+                    val dest  = if (shown) Screen.Home.route else Screen.Consent.route
+                    navController.navigate(dest) { popUpTo(0) { inclusive = true } }
+                }
+                Box(Modifier.fillMaxSize()) {
+                    CircularProgressIndicator(modifier = Modifier.align(androidx.compose.ui.Alignment.Center))
+                }
+            }
+
             composable(Screen.Consent.route) {
-                ConsentScreen(
-                    onDone = {
-                        navController.navigate(Screen.Home.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
-                    }
-                )
+                ConsentScreen(onDone = {
+                    navController.navigate(Screen.Home.route) { popUpTo(0) { inclusive = true } }
+                })
             }
 
             composable(Screen.Home.route) {
@@ -182,7 +210,6 @@ fun EvaApp(startDestination: String) {
             }
             composable(Screen.Appointments.route) { AppointmentsScreen() }
             composable(Screen.Symptoms.route) {
-                // История видна всем — записи фильтруются на бэке по userId токена
                 SymptomsScreen(
                     onNewRequest = { navController.navigate(Screen.SymptomsForm.route) },
                     viewModel    = symptomsVm
@@ -191,11 +218,26 @@ fun EvaApp(startDestination: String) {
             composable(Screen.Profile.route) {
                 ProfileScreen(
                     onLogout = {
-                        navController.navigate(Screen.Login.route) {
-                            popUpTo(0) { inclusive = true }
-                        }
+                        navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
                     },
-                    onOpenConsent = { navController.navigate(Screen.Consent.route) }
+                    onOpenMedicalCard = { navController.navigate(Screen.MedicalCard.route) },
+                    onOpenSettings    = { navController.navigate(Screen.Settings.route) }
+                )
+            }
+            composable(Screen.MedicalCard.route) {
+                MedicalCardScreen(onBack = { navController.popBackStack() })
+            }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    onBack         = { navController.popBackStack() },
+                    onEditProfile  = { navController.navigate(Screen.EditProfile.route) },
+                    onEditConsents = { navController.navigate(Screen.Consent.route) }
+                )
+            }
+            composable(Screen.EditProfile.route) {
+                EditProfileScreen(
+                    onBack  = { navController.popBackStack() },
+                    onSaved = { navController.popBackStack() }
                 )
             }
 
@@ -203,110 +245,72 @@ fun EvaApp(startDestination: String) {
                 listOf(navArgument("specId") { type = NavType.IntType; defaultValue = -1 })
             ) { entry ->
                 val specId = entry.arguments?.getInt("specId")?.takeIf { it != -1 }
-                DoctorsScreen(
-                    initialSpecId = specId,
-                    onBack        = { navController.popBackStack() },
-                    onDoctorClick = { navController.navigate(Screen.DoctorDetail.createRoute(it)) }
-                )
+                DoctorsScreen(initialSpecId = specId,
+                    onBack = { navController.popBackStack() },
+                    onDoctorClick = { navController.navigate(Screen.DoctorDetail.createRoute(it)) })
             }
             composable(Screen.DoctorDetail.route,
                 listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->
                 val id = entry.arguments?.getInt("doctorId") ?: return@composable
-                DoctorDetailScreen(
-                    doctorId = id,
-                    onBack   = { navController.popBackStack() },
-                    onBook   = { navController.navigate(Screen.Booking.createRoute(it)) }
-                )
+                DoctorDetailScreen(doctorId = id,
+                    onBack = { navController.popBackStack() },
+                    onBook = { navController.navigate(Screen.Booking.createRoute(it)) })
             }
             composable(Screen.Booking.route,
                 listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->
                 val id = entry.arguments?.getInt("doctorId") ?: return@composable
-                // Запись на приём требует медицинского согласия
-                MedicalConsentGate(
-                    onRequestConsent = { navController.navigate(Screen.Consent.route) }
-                ) {
-                    BookingScreen(
-                        doctorId  = id,
+                MedicalConsentGate(onRequestConsent = { navController.navigate(Screen.Consent.route) }) {
+                    BookingScreen(doctorId = id,
                         onBack    = { navController.popBackStack() },
-                        onSuccess = {
-                            navController.navigate(Screen.Appointments.route) {
-                                popUpTo(0) { inclusive = true }
-                            }
-                        }
-                    )
+                        onSuccess = { navController.navigate(Screen.Appointments.route) { popUpTo(0) { inclusive = true } } })
                 }
             }
 
             composable(Screen.Clinics.route) {
                 val vm = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>()
-                ClinicsScreen(
-                    onBack        = { navController.popBackStack() },
-                    onClinicClick = { navController.navigate("clinic_detail/$it") },
-                    viewModel     = vm
-                )
+                ClinicsScreen(onBack = { navController.popBackStack() },
+                    onClinicClick = { navController.navigate("clinic_detail/$it") }, viewModel = vm)
             }
             composable("clinic_detail/{clinicId}",
                 listOf(navArgument("clinicId") { type = NavType.IntType })) { entry ->
                 val clinicId    = entry.arguments?.getInt("clinicId") ?: return@composable
-                val parentEntry = remember(entry) {
-                    navController.getBackStackEntry(Screen.Clinics.route)
-                }
-                val clinicsVm = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>(parentEntry)
-                val clinic    = clinicsVm.getById(clinicId)
-                if (clinic != null) {
-                    ClinicDetailScreen(clinic = clinic, onBack = { navController.popBackStack() })
-                } else {
-                    LaunchedEffect(Unit) { navController.popBackStack() }
-                }
+                val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Clinics.route) }
+                val clinicsVm   = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>(parentEntry)
+                val clinic      = clinicsVm.getById(clinicId)
+                if (clinic != null) ClinicDetailScreen(clinic = clinic, onBack = { navController.popBackStack() })
+                else LaunchedEffect(Unit) { navController.popBackStack() }
             }
             composable(Screen.Specializations.route) {
-                SpecializationsScreen(
-                    onBack      = { navController.popBackStack() },
-                    onSpecClick = { navController.navigate(Screen.Doctors.createRoute(it)) }
-                )
+                SpecializationsScreen(onBack = { navController.popBackStack() },
+                    onSpecClick = { navController.navigate(Screen.Doctors.createRoute(it)) })
             }
 
             composable(Screen.SymptomsForm.route) {
-                // AI-анализ требует отдельного согласия
-                AiConsentGate(
-                    onRequestConsent = { navController.navigate(Screen.Consent.route) }
-                ) {
-                    SymptomsFormScreen(
-                        onBack    = { navController.popBackStack() },
-                        onResult  = { navController.navigate(Screen.SymptomsResult.route) },
-                        viewModel = symptomsVm
-                    )
+                AiConsentGate(onRequestConsent = { navController.navigate(Screen.Consent.route) }) {
+                    SymptomsFormScreen(onBack = { navController.popBackStack() },
+                        onResult = { navController.navigate(Screen.SymptomsResult.route) },
+                        viewModel = symptomsVm)
                 }
             }
             composable(Screen.SymptomsResult.route) {
                 SymptomsResultScreen(
-                    onBack    = {
-                        navController.popBackStack(Screen.SymptomsForm.route, inclusive = true)
-                    },
-                    viewModel = symptomsVm
-                )
+                    onBack    = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
+                    viewModel = symptomsVm)
             }
 
             composable(Screen.Notifications.route) {
                 val notifVm = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>()
-                NotificationsScreen(
-                    onBack       = { navController.popBackStack() },
+                NotificationsScreen(onBack = { navController.popBackStack() },
                     onNotifClick = { navController.navigate(Screen.NotificationDetail.createRoute(it)) },
-                    viewModel    = notifVm
-                )
+                    viewModel = notifVm)
             }
             composable(Screen.NotificationDetail.route,
                 listOf(navArgument("notifId") { type = NavType.StringType })) { entry ->
                 val notifId     = entry.arguments?.getString("notifId") ?: return@composable
-                val parentEntry = remember(entry) {
-                    navController.getBackStackEntry(Screen.Notifications.route)
-                }
-                val notifVm = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>(parentEntry)
-                NotificationDetailScreen(
-                    notifId   = notifId,
-                    onBack    = { navController.popBackStack() },
-                    viewModel = notifVm
-                )
+                val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Notifications.route) }
+                val notifVm     = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>(parentEntry)
+                NotificationDetailScreen(notifId = notifId,
+                    onBack = { navController.popBackStack() }, viewModel = notifVm)
             }
         }
     }

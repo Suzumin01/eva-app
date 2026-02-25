@@ -57,7 +57,6 @@ class NotificationsViewModel @Inject constructor(
     fun markRead(id: String) {
         viewModelScope.launch {
             safeApiCall { api.markNotificationRead(id) }
-            // Обновить локально без перезагрузки
             _notifications.value = _notifications.value.map {
                 if (it.notificationId == id) it.copy(isRead = true) else it
             }
@@ -167,7 +166,6 @@ fun NotificationDetailScreen(
     onBack: () -> Unit,
     viewModel: NotificationsViewModel = hiltViewModel()
 ) {
-    // При открытии — помечаем прочитанным
     LaunchedEffect(notifId) { viewModel.markRead(notifId) }
 
     val notif = viewModel.getById(notifId)

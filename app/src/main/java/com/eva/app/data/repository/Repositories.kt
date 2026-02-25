@@ -57,6 +57,14 @@ class AuthRepository @Inject constructor(
     suspend fun getMe(): Resource<UserProfileResponse> =
         safeApiCall { api.getMe() }
 
+    suspend fun updateProfile(fullName: String?, phone: String?): Resource<UserProfileResponse> {
+        val result = safeApiCall { api.updateProfile(UpdateProfileRequest(fullName, phone)) }
+        if (result is Resource.Success && fullName != null) {
+            tokenManager.saveUserName(fullName)
+        }
+        return result
+    }
+
     suspend fun logout() = tokenManager.clearAuth()
 }
 

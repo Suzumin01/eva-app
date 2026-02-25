@@ -1,6 +1,8 @@
 package com.eva.app.presentation.navigation
 
 sealed class Screen(val route: String) {
+    object Onboarding        : Screen("onboarding")
+    object ConsentCheck      : Screen("consent_check")
     object Home              : Screen("home")
     object Login             : Screen("login")
     object Register          : Screen("register")
@@ -25,4 +27,7 @@ sealed class Screen(val route: String) {
         fun createRoute(id: String) = "notification_detail/$id"
     }
     object Profile           : Screen("profile")
+    object MedicalCard       : Screen("medical_card")
+    object Settings          : Screen("settings")
+    object EditProfile       : Screen("edit_profile")
 }

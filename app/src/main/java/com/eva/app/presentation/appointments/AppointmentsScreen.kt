@@ -202,7 +202,6 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                         }
                     }
 
-                    // Если статус completed — показать блок диагноза/заключения
                     if (a.status == "completed") {
                         HorizontalDivider()
                         Card(

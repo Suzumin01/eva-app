@@ -107,7 +107,6 @@ fun DoctorsScreen(
     ) { padding ->
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                // Поиск
                 OutlinedTextField(
                     value = searchQuery, onValueChange = { viewModel.searchQuery.value = it },
                     placeholder = { Text("Поиск врача по имени...") },
@@ -121,7 +120,6 @@ fun DoctorsScreen(
                     shape = RoundedCornerShape(12.dp)
                 )
                 Spacer(Modifier.height(8.dp))
-                // Dropdown специализации
                 ExposedDropdownMenuBox(expanded = specExpanded, onExpandedChange = { specExpanded = it }) {
                     OutlinedTextField(
                         value = selectedSpecName, onValueChange = {},

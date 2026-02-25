@@ -125,27 +125,22 @@ fun BookingScreen(
     LaunchedEffect(doctorId) { viewModel.load(doctorId) }
     LaunchedEffect(bookState) { if (bookState is BookState.Success) onSuccess() }
 
-    // Все доступные даты из слотов
     val availableDates = remember(schedules) {
         schedules.map { it.slotDate }.distinct().sorted()
     }
 
-    // Автовыбор первой даты
     LaunchedEffect(availableDates) {
         if (selectedDate == null && availableDates.isNotEmpty()) {
             selectedDate = availableDates.first()
         }
     }
 
-    // Слоты для выбранной даты
     val slotsForDate = remember(schedules, selectedDate) {
         schedules.filter { it.slotDate == selectedDate }.sortedBy { it.slotTime }
     }
 
-    // Сброс слота при смене даты
     LaunchedEffect(selectedDate) { selectedSlot = null }
 
-    // Диалог подтверждения
     if (showConfirm && selectedSlot != null) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
@@ -259,7 +254,6 @@ fun BookingScreen(
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
 
-            // Шапка врача
             doctor?.let { doc ->
                 item {
                     Card(
@@ -292,7 +286,6 @@ fun BookingScreen(
                 }
             }
 
-            // Фильтр по дате — горизонтальный скролл
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
                     Text("Выберите дату",
@@ -332,7 +325,6 @@ fun BookingScreen(
                 }
             }
 
-            // Сетка слотов выбранной даты
             item {
                 selectedDate?.let { date ->
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
