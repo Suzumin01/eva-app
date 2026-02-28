@@ -133,14 +133,16 @@ fun EditProfileScreen(
     val snackbar  = remember { SnackbarHostState() }
     val context   = LocalContext.current
 
+    // Поля инициализируются как только пришёл профиль (fix issue 3)
     var fullName  by remember { mutableStateOf("") }
-    var phone     by remember { mutableStateOf("") }
+    var phone     by remember { mutableStateOf("") }  // только цифры
     var dob       by remember { mutableStateOf("") }
     var allergies by remember { mutableStateOf("") }
     var chronic   by remember { mutableStateOf("") }
     var insurance by remember { mutableStateOf("") }
     var initialized by remember { mutableStateOf(false) }
 
+    // Заполняем поля при загрузке (один раз)
     LaunchedEffect(profile, viewModel.allergies.value) {
         if (!initialized && profile != null) {
             fullName  = profile!!.fullName
@@ -156,6 +158,7 @@ fun EditProfileScreen(
     LaunchedEffect(saved)  { if (saved) onSaved() }
     LaunchedEffect(error)  { error?.let { snackbar.showSnackbar(it); viewModel.clearError() } }
 
+    // Валидация
     val phoneDigits  = phone.filter { it.isDigit() }
     val phoneValid   = phoneDigits.isEmpty() || phoneDigits.length == 11
     val insurDigits  = insurance.filter { it.isDigit() }
@@ -163,6 +166,7 @@ fun EditProfileScreen(
     val nameValid    = fullName.trim().length >= 2
     val canSave      = nameValid && phoneValid && !isSaving
 
+    // DatePicker
     fun showDatePicker() {
         val cal = Calendar.getInstance()
         val parts = dob.split(".")
@@ -219,6 +223,7 @@ fun EditProfileScreen(
         ) {
 
             EditSection("Личные данные") {
+                // Имя
                 OutlinedTextField(
                     value         = fullName,
                     onValueChange = { fullName = it },
@@ -232,6 +237,7 @@ fun EditProfileScreen(
                     singleLine    = true
                 )
 
+                // Телефон с маской
                 OutlinedTextField(
                     value         = phone,
                     onValueChange = { new ->
@@ -253,28 +259,45 @@ fun EditProfileScreen(
                     singleLine    = true
                 )
 
+                // Дата рождения — ввод с клавиатуры + кнопка пикера
+                val dobDigits = dob.replace(".", "").filter { it.isDigit() }
+                val dobValid  = dob.isEmpty() || (dobDigits.length == 8 && run {
+                    val d = dobDigits.take(2).toIntOrNull() ?: 0
+                    val m = dobDigits.drop(2).take(2).toIntOrNull() ?: 0
+                    val y = dobDigits.drop(4).toIntOrNull() ?: 0
+                    d in 1..31 && m in 1..12 && y in 1900..2025
+                })
                 OutlinedTextField(
                     value         = dob,
-                    onValueChange = {},
-                    readOnly      = true,
+                    onValueChange = { raw ->
+                        // Оставляем только цифры, добавляем точки автоматически
+                        val digits = raw.replace(".", "").filter { it.isDigit() }.take(8)
+                        dob = buildString {
+                            digits.forEachIndexed { i, c ->
+                                if (i == 2 || i == 4) append(".")
+                                append(c)
+                            }
+                        }
+                    },
                     label         = { Text("Дата рождения") },
                     leadingIcon   = { Icon(Icons.Default.Cake, null, Modifier.size(18.dp)) },
                     trailingIcon  = {
                         IconButton(onClick = { showDatePicker() }) {
-                            Icon(Icons.Default.CalendarMonth, null)
+                            Icon(Icons.Default.CalendarMonth, null,
+                                tint = MaterialTheme.colorScheme.primary)
                         }
                     },
                     placeholder   = { Text("дд.мм.гггг") },
-                    modifier      = Modifier.fillMaxWidth().also { /* open picker on tap */ },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    isError       = dob.isNotEmpty() && !dobValid,
+                    supportingText = when {
+                        dob.isNotEmpty() && !dobValid -> {{ Text("Введите корректную дату (дд.мм.гггг)") }}
+                        else -> {{ Text("Введите вручную или нажмите 📅") }}
+                    },
+                    modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
                     singleLine    = true
                 )
-                TextButton(
-                    onClick  = { showDatePicker() },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (dob.isEmpty()) "Выбрать дату рождения" else "Изменить дату: $dob")
-                }
             }
 
             EditSection("Страхование") {

@@ -164,6 +164,7 @@ fun EvaApp(startDestination: String) {
             composable(Screen.Login.route) {
                 LoginScreen(
                     onLoginSuccess = {
+                        // Промежуточный роут проверит consentShown из DataStore
                         navController.navigate(Screen.ConsentCheck.route) {
                             popUpTo(0) { inclusive = true }
                         }
@@ -205,7 +206,8 @@ fun EvaApp(startDestination: String) {
                     onClinics         = { navController.navigate(Screen.Clinics.route) },
                     onSpecializations = { navController.navigate(Screen.Specializations.route) },
                     onSymptoms        = { navController.navigate(Screen.SymptomsForm.route) },
-                    onAppointments    = { navController.navigate(Screen.Appointments.route) }
+                    onAppointments    = { navController.navigate(Screen.Appointments.route) },
+                    onDoctorClick     = { navController.navigate(Screen.DoctorDetail.createRoute(it)) }
                 )
             }
             composable(Screen.Appointments.route) { AppointmentsScreen() }

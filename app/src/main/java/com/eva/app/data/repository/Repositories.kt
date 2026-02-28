@@ -3,6 +3,11 @@ package com.eva.app.data.repository
 import com.eva.app.data.api.*
 import com.eva.app.data.local.TokenManager
 import com.eva.app.util.Resource
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
+import okhttp3.RequestBody.Companion.asRequestBody
+import okhttp3.RequestBody.Companion.toRequestBody
+import okhttp3.MediaType.Companion.toMediaType
 import retrofit2.Response
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -83,6 +88,15 @@ class DoctorRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getDoctorReviews(id: Int): Resource<List<ReviewResponse>> =
         safeApiCall { api.getDoctorReviews(id) }
 
+    suspend fun canReview(doctorId: Int): Resource<Map<String, Boolean>> =
+        safeApiCall { api.canReview(doctorId) }
+
+    suspend fun updateReview(reviewId: String, rating: Int, comment: String?): Resource<Map<String, String>> =
+        safeApiCall { api.updateReview(reviewId, UpdateReviewRequest(rating, comment)) }
+
+    suspend fun deleteReview(reviewId: String): Resource<Map<String, String>> =
+        safeApiCall { api.deleteReview(reviewId) }
+
     suspend fun addReview(doctorId: Int, rating: Int, comment: String?): Resource<Map<String, String>> =
         safeApiCall { api.addReview(doctorId, AddReviewRequest(rating, comment)) }
 }
@@ -116,6 +130,24 @@ class SymptomsRepository @Inject constructor(private val api: EvaApi) {
 }
 
 @Singleton
+class DocumentRepository @Inject constructor(private val api: EvaApi) {
+    suspend fun getDocuments(): Resource<List<DocumentResponse>> = safeApiCall { api.getDocuments() }
+
+    suspend fun uploadDocument(
+        file: java.io.File, category: String, description: String?
+    ): Resource<Map<String, String>> {
+        val mimeType = if (file.name.endsWith(".pdf", true)) "application/pdf" else "image/*"
+        val reqFile  = file.asRequestBody(mimeType.toMediaType())
+        val part     = MultipartBody.Part.createFormData("file", file.name, reqFile)
+        val catBody  = category.toRequestBody("text/plain".toMediaType())
+        val descBody = description?.toRequestBody("text/plain".toMediaType())
+        return safeApiCall { api.uploadDocument(part, catBody, descBody) }
+    }
+
+    suspend fun deleteDocument(id: String): Resource<Map<String, String>> =
+        safeApiCall { api.deleteDocument(id) }
+}
+
 class NotificationRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getNotifications(): Resource<List<NotificationResponse>> =
         safeApiCall { api.getNotifications() }

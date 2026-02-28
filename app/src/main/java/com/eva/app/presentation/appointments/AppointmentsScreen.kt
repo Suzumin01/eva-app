@@ -89,10 +89,10 @@ class AppointmentsViewModel @Inject constructor(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
-    val upcoming  by viewModel.upcoming.collectAsState()
-    val past      by viewModel.past.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val message   by viewModel.message.collectAsState()
+    val upcoming         by viewModel.upcoming.collectAsState()
+    val past             by viewModel.past.collectAsState()
+    val isLoading        by viewModel.isLoading.collectAsState()
+    val message          by viewModel.message.collectAsState()
     var tab       by remember { mutableStateOf(0) }
     val snackbar   = remember { SnackbarHostState() }
 
@@ -128,7 +128,10 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     items(list, key = { it.appointmentId }) { a ->
-                        AppointmentCard(a) { viewModel.cancel(a.appointmentId) }
+                        AppointmentCard(
+                            a        = a,
+                            onCancel = { viewModel.cancel(a.appointmentId) }
+                        )
                     }
                 }
             }
@@ -137,7 +140,10 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
+fun AppointmentCard(
+    a: AppointmentResponse,
+    onCancel: () -> Unit
+) {
     var showDetail  by remember { mutableStateOf(false) }
     var showConfirm by remember { mutableStateOf(false) }
 
@@ -202,6 +208,7 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                         }
                     }
 
+                    // Если статус completed — показать блок диагноза/заключения
                     if (a.status == "completed") {
                         HorizontalDivider()
                         Card(

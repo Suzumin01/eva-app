@@ -22,7 +22,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.api.SymptomsHistoryResponse
+import com.eva.app.data.api.DocumentResponse
 import com.eva.app.data.repository.AppointmentRepository
+import com.eva.app.data.repository.DocumentRepository
 import com.eva.app.data.repository.SymptomsRepository
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDate
@@ -36,7 +38,8 @@ import javax.inject.Inject
 @HiltViewModel
 class MedicalCardViewModel @Inject constructor(
     private val appointmentRepository: AppointmentRepository,
-    private val symptomsRepository: SymptomsRepository
+    private val symptomsRepository: SymptomsRepository,
+    private val documentRepository: DocumentRepository
 ) : ViewModel() {
     private val _appointments = MutableStateFlow<List<AppointmentResponse>>(emptyList())
     val appointments = _appointments.asStateFlow()
@@ -44,8 +47,12 @@ class MedicalCardViewModel @Inject constructor(
     private val _symptomsHistory = MutableStateFlow<List<SymptomsHistoryResponse>>(emptyList())
     val symptomsHistory = _symptomsHistory.asStateFlow()
 
+    private val _documents  = MutableStateFlow<List<DocumentResponse>>(emptyList())
+    val documents = _documents.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+    private val _uploadError = MutableStateFlow<String?>(null)
+    val uploadError = _uploadError.asStateFlow()
 
     init { load() }
 
@@ -62,9 +69,32 @@ class MedicalCardViewModel @Inject constructor(
                 is Resource.Success -> _symptomsHistory.value = r.data
                 else -> {}
             }
+            when (val r = documentRepository.getDocuments()) {
+                is Resource.Success -> _documents.value = r.data
+                else -> {}
+            }
             _isLoading.value = false
         }
     }
+
+    fun uploadDocument(file: java.io.File, category: String, description: String) {
+        viewModelScope.launch {
+            when (val r = documentRepository.uploadDocument(file, category, description.ifBlank { null })) {
+                is Resource.Success -> load()
+                is Resource.Error   -> _uploadError.value = r.message ?: "Ошибка загрузки"
+                else -> {}
+            }
+        }
+    }
+
+    fun deleteDocument(id: String) {
+        viewModelScope.launch {
+            documentRepository.deleteDocument(id)
+            load()
+        }
+    }
+
+    fun clearUploadError() { _uploadError.value = null }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -75,11 +105,19 @@ fun MedicalCardScreen(
 ) {
     val appointments    by viewModel.appointments.collectAsState()
     val symptomsHistory by viewModel.symptomsHistory.collectAsState()
+    val documents       by viewModel.documents.collectAsState()
     val isLoading       by viewModel.isLoading.collectAsState()
+    val uploadError     by viewModel.uploadError.collectAsState()
+    val snackbar         = remember { SnackbarHostState() }
 
     var tab by remember { mutableStateOf(0) }
     var selectedAppointment by remember { mutableStateOf<AppointmentResponse?>(null) }
     var selectedSymptom     by remember { mutableStateOf<SymptomsHistoryResponse?>(null) }
+    var showDeleteDocDialog by remember { mutableStateOf<DocumentResponse?>(null) }
+
+    LaunchedEffect(uploadError) {
+        uploadError?.let { snackbar.showSnackbar(it); viewModel.clearUploadError() }
+    }
 
     selectedAppointment?.let { a ->
         AlertDialog(
@@ -116,6 +154,7 @@ fun MedicalCardScreen(
 
                     HorizontalDivider()
 
+                    // Блок результатов приёма
                     Card(
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer),
@@ -249,6 +288,7 @@ fun MedicalCardScreen(
     }
 
     Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 title = { Text("Медицинская карта") },
@@ -271,6 +311,8 @@ fun MedicalCardScreen(
                     text = { Text("Приёмы (${appointments.size})") })
                 Tab(selected = tab == 1, onClick = { tab = 1 },
                     text = { Text("AI-анализы (${symptomsHistory.size})") })
+                Tab(selected = tab == 2, onClick = { tab = 2 },
+                    text = { Text("Документы (${documents.size})") })
             }
 
             when {
@@ -293,6 +335,13 @@ fun MedicalCardScreen(
                             }
                         }
                     }
+                }
+                tab == 2 -> {
+                    DocumentsTab(
+                        documents = documents,
+                        onDelete = { doc -> showDeleteDocDialog = doc },
+                        onUpload = { file, cat, desc -> viewModel.uploadDocument(file, cat, desc) }
+                    )
                 }
                 else -> {
                     if (symptomsHistory.isEmpty()) {
@@ -451,4 +500,217 @@ fun MedCardEmpty(icon: ImageVector, text: String) {
             Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
+}
+
+@Composable
+fun DocumentsTab(
+    documents: List<DocumentResponse>,
+    onDelete: (DocumentResponse) -> Unit,
+    onUpload: (java.io.File, String, String) -> Unit
+) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    var showUploadDialog by remember { mutableStateOf(false) }
+    var docToDelete      by remember { mutableStateOf<DocumentResponse?>(null) }
+
+    if (showUploadDialog) {
+        UploadDocumentDialog(
+            onDismiss = { showUploadDialog = false },
+            onUpload  = { file, cat, desc ->
+                showUploadDialog = false
+                onUpload(file, cat, desc)
+            }
+        )
+    }
+
+    docToDelete?.let { doc ->
+        AlertDialog(
+            onDismissRequest = { docToDelete = null },
+            title = { Text("Удалить документ?") },
+            text  = { Text("«${doc.fileName}» будет удалён без возможности восстановления.") },
+            confirmButton = {
+                Button(onClick = { onDelete(doc); docToDelete = null },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error)) {
+                    Text("Удалить")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { docToDelete = null }) { Text("Отмена") }
+            }
+        )
+    }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // Кнопка добавить
+        OutlinedButton(
+            onClick  = { showUploadDialog = true },
+            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            shape    = RoundedCornerShape(12.dp)
+        ) {
+            Icon(Icons.Default.Upload, null, modifier = Modifier.size(18.dp))
+            Spacer(Modifier.width(8.dp))
+            Text("Загрузить документ")
+        }
+
+        if (documents.isEmpty()) {
+            MedCardEmpty(
+                icon = Icons.Default.Description,
+                text = "Нет загруженных документов"
+            )
+        } else {
+            LazyColumn(
+                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                items(documents, key = { it.documentId }) { doc ->
+                    DocumentCard(doc = doc, onDelete = { docToDelete = doc })
+                }
+                item { Spacer(Modifier.height(8.dp)) }
+            }
+        }
+    }
+}
+
+@Composable
+fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
+    val (icon, color) = when (doc.fileType) {
+        "pdf"   -> Icons.Default.PictureAsPdf to Color(0xFFD32F2F)
+        "image" -> Icons.Default.Image to Color(0xFF1565C0)
+        else    -> Icons.Default.Description to Color(0xFF616161)
+    }
+    val categoryLabel = when (doc.category) {
+        "analysis"     -> "Анализ"
+        "prescription" -> "Рецепт"
+        "xray"         -> "Снимок"
+        else           -> "Документ"
+    }
+    val sizeText = when {
+        doc.fileSize < 1024        -> "${doc.fileSize} Б"
+        doc.fileSize < 1024 * 1024 -> "${doc.fileSize / 1024} КБ"
+        else                       -> "${doc.fileSize / (1024 * 1024)} МБ"
+    }
+
+    Card(shape = RoundedCornerShape(14.dp), elevation = CardDefaults.cardElevation(2.dp)) {
+        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Surface(shape = RoundedCornerShape(10.dp),
+                color = color.copy(alpha = 0.12f),
+                modifier = Modifier.size(44.dp)) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(doc.fileName, fontWeight = FontWeight.SemiBold,
+                    style = MaterialTheme.typography.bodyMedium,
+                    maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    AssistChip(onClick = {}, label = { Text(categoryLabel,
+                        style = MaterialTheme.typography.labelSmall) },
+                        modifier = Modifier.height(22.dp))
+                    Text(sizeText, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.align(Alignment.CenterVertically))
+                }
+                doc.description?.let {
+                    Text(it, style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+            }
+            IconButton(onClick = onDelete) {
+                Icon(Icons.Default.DeleteOutline, null,
+                    tint = MaterialTheme.colorScheme.error)
+            }
+        }
+    }
+}
+
+@Composable
+fun UploadDocumentDialog(
+    onDismiss: () -> Unit,
+    onUpload: (java.io.File, String, String) -> Unit
+) {
+    val context  = androidx.compose.ui.platform.LocalContext.current
+    var fileName by remember { mutableStateOf("") }
+    var pickedUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var category by remember { mutableStateOf("analysis") }
+    var description by remember { mutableStateOf("") }
+
+    val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
+        androidx.activity.result.contract.ActivityResultContracts.GetContent()
+    ) { uri ->
+        uri?.let {
+            pickedUri = it
+            fileName = it.lastPathSegment ?: "document"
+        }
+    }
+
+    val categories = listOf(
+        "analysis" to "Анализ",
+        "prescription" to "Рецепт",
+        "xray" to "Снимок/МРТ",
+        "other" to "Другое"
+    )
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Загрузить документ") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Выбор файла
+                OutlinedButton(
+                    onClick  = { launcher.launch("*/*") },
+                    modifier = Modifier.fillMaxWidth(),
+                    shape    = RoundedCornerShape(10.dp)
+                ) {
+                    Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(6.dp))
+                    Text(if (fileName.isEmpty()) "Выбрать файл (PDF / фото)"
+                    else fileName, maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
+                }
+
+                // Категория
+                Text("Тип документа:", style = MaterialTheme.typography.bodySmall)
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    categories.forEach { (key, label) ->
+                        FilterChip(
+                            selected = category == key,
+                            onClick  = { category = key },
+                            label    = { Text(label, style = MaterialTheme.typography.labelSmall) }
+                        )
+                    }
+                }
+
+                // Описание
+                OutlinedTextField(
+                    value         = description,
+                    onValueChange = { description = it },
+                    label         = { Text("Описание (необязательно)") },
+                    modifier      = Modifier.fillMaxWidth(),
+                    shape         = RoundedCornerShape(10.dp),
+                    singleLine    = true
+                )
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    pickedUri?.let { uri ->
+                        // Копируем URI во временный файл
+                        val tmpFile = java.io.File(context.cacheDir, fileName)
+                        context.contentResolver.openInputStream(uri)?.use { input ->
+                            tmpFile.outputStream().use { it.write(input.readBytes()) }
+                        }
+                        onUpload(tmpFile, category, description)
+                    }
+                },
+                enabled = pickedUri != null
+            ) { Text("Загрузить") }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text("Отмена") }
+        }
+    )
 }

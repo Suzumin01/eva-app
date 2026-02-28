@@ -2,7 +2,8 @@ package com.eva.app.data.api
 
 import retrofit2.Response
 import retrofit2.http.*
-import retrofit2.http.PATCH
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 
 interface EvaApi {
 
@@ -67,6 +68,32 @@ interface EvaApi {
 
     @GET("symptoms/history")
     suspend fun getSymptomsHistory(): Response<List<SymptomsHistoryResponse>>
+
+    @GET("doctors/{id}/can-review")
+    suspend fun canReview(@Path("id") id: Int): Response<Map<String, Boolean>>
+
+    @PATCH("doctors/reviews/{reviewId}")
+    suspend fun updateReview(
+        @Path("reviewId") reviewId: String,
+        @Body request: UpdateReviewRequest
+    ): Response<Map<String, String>>
+
+    @DELETE("doctors/reviews/{reviewId}")
+    suspend fun deleteReview(@Path("reviewId") reviewId: String): Response<Map<String, String>>
+
+    @GET("documents")
+    suspend fun getDocuments(): Response<List<DocumentResponse>>
+
+    @Multipart
+    @POST("documents")
+    suspend fun uploadDocument(
+        @Part file: okhttp3.MultipartBody.Part,
+        @Part("category") category: okhttp3.RequestBody,
+        @Part("description") description: okhttp3.RequestBody?
+    ): Response<Map<String, String>>
+
+    @DELETE("documents/{id}")
+    suspend fun deleteDocument(@Path("id") id: String): Response<Map<String, String>>
 
     @GET("notifications")
     suspend fun getNotifications(

@@ -39,6 +39,17 @@ data class UpdateProfileRequest(
     val phone: String?
 )
 
+data class DocumentResponse(
+    val documentId:  String,
+    val fileName:    String,
+    val fileType:    String,
+    val fileSize:    Long,
+    val category:    String,
+    val description: String?,
+    val createdAt:   String,
+    val downloadUrl: String
+)
+
 data class DoctorResponse(
     val doctorId: Int,
     val fullName: String,
@@ -61,10 +72,16 @@ data class DoctorListResponse(
 
 data class ReviewResponse(
     val reviewId: String,
+    val userId: String,
     val userFullName: String,
     val rating: Int,
     val comment: String?,
     val createdAt: String
+)
+
+data class UpdateReviewRequest(
+    val rating: Int,
+    val comment: String?
 )
 
 data class AddReviewRequest(
