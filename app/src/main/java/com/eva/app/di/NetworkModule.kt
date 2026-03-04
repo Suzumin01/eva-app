@@ -1,6 +1,11 @@
 package com.eva.app.di
 
+import android.content.Context
 import com.eva.app.BuildConfig
+import com.eva.app.data.local.room.AppDatabase
+import com.eva.app.data.local.room.DoctorCacheDao
+import com.eva.app.data.local.room.ClinicCacheDao
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.eva.app.data.api.EvaApi
 import com.eva.app.data.local.TokenManager
 import dagger.Module
@@ -62,4 +67,15 @@ object NetworkModule {
     @Singleton
     fun provideEvaApi(retrofit: Retrofit): EvaApi =
         retrofit.create(EvaApi::class.java)
+
+    @Provides
+    @Singleton
+    fun provideAppDatabase(@ApplicationContext context: Context): AppDatabase =
+        AppDatabase.getInstance(context)
+
+    @Provides
+    fun provideDoctorCacheDao(db: AppDatabase): DoctorCacheDao = db.doctorCacheDao()
+
+    @Provides
+    fun provideClinicCacheDao(db: AppDatabase): ClinicCacheDao = db.clinicCacheDao()
 }

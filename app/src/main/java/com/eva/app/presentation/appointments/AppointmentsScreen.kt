@@ -10,6 +10,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -30,24 +31,27 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalTime
+import java.time.temporal.ChronoUnit
 import javax.inject.Inject
 
 @HiltViewModel
 class AppointmentsViewModel @Inject constructor(
     private val repository: AppointmentRepository
 ) : ViewModel() {
-    val upcoming  = MutableStateFlow<List<AppointmentResponse>>(emptyList())
-    val past      = MutableStateFlow<List<AppointmentResponse>>(emptyList())
-    private val _isLoading = MutableStateFlow(false)
+    val upcoming   = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    val past       = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    private val _isLoading  = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+    private val _isRefreshing = MutableStateFlow(false)
+    val isRefreshing = _isRefreshing.asStateFlow()
     private val _message  = MutableStateFlow<String?>(null)
     val message = _message.asStateFlow()
 
     init { loadAppointments() }
 
-    fun loadAppointments() {
+    fun loadAppointments(isRefresh: Boolean = false) {
         viewModelScope.launch {
-            _isLoading.value = true
+            if (isRefresh) _isRefreshing.value = true else _isLoading.value = true
             when (val r = repository.getMyAppointments()) {
                 is Resource.Success -> {
                     val all   = r.data
@@ -66,35 +70,48 @@ class AppointmentsViewModel @Inject constructor(
                         d < today || (d == today && t <= now)
                     }.sortedByDescending { it.slotDate + it.slotTime }
                 }
-                is Resource.Error -> _message.value = r.message
+                is Resource.Error -> _message.value = friendlyError(r.message)
                 else -> {}
             }
             _isLoading.value = false
+            _isRefreshing.value = false
         }
     }
 
     fun cancel(id: String) {
         viewModelScope.launch {
             when (val r = repository.cancelAppointment(id)) {
-                is Resource.Success -> loadAppointments()
-                is Resource.Error   -> _message.value = r.message
+                is Resource.Success -> { loadAppointments(); _message.value = "Запись отменена" }
+                is Resource.Error   -> _message.value = friendlyError(r.message)
                 else -> {}
             }
         }
     }
 
     fun clearMessage() { _message.value = null }
+
+    private fun friendlyError(raw: String?): String = when {
+        raw == null                          -> "Что-то пошло не так"
+        raw.contains("UnprocessableEntity") ||
+                raw.contains("422") ||
+                raw.contains("24 час")              -> "Отмена невозможна менее чем за 24 часа до приёма"
+        raw.contains("Unable to resolve")   -> "Нет подключения к интернету"
+        raw.contains("timeout", true)       -> "Сервер не отвечает, попробуйте позже"
+        raw.contains("401")                 -> "Сессия истекла, войдите снова"
+        else                                -> raw
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
-    val upcoming         by viewModel.upcoming.collectAsState()
-    val past             by viewModel.past.collectAsState()
-    val isLoading        by viewModel.isLoading.collectAsState()
-    val message          by viewModel.message.collectAsState()
-    var tab       by remember { mutableStateOf(0) }
-    val snackbar   = remember { SnackbarHostState() }
+    val upcoming     by viewModel.upcoming.collectAsState()
+    val past         by viewModel.past.collectAsState()
+    val isLoading    by viewModel.isLoading.collectAsState()
+    val isRefreshing by viewModel.isRefreshing.collectAsState()
+    val message      by viewModel.message.collectAsState()
+    var tab          by remember { mutableStateOf(0) }
+    val snackbar      = remember { SnackbarHostState() }
 
     LaunchedEffect(message) {
         message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() }
@@ -108,30 +125,39 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
                 Tab(selected = tab == 1, onClick = { tab = 1 },
                     text = { Text("Прошедшие (${past.size})") })
             }
+
             val list = if (tab == 0) upcoming else past
+
             when {
                 isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                     CircularProgressIndicator()
                 }
-                list.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Icon(if (tab == 0) Icons.Default.CalendarToday else Icons.Default.History,
-                            null, modifier = Modifier.size(64.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.height(12.dp))
-                        Text(if (tab == 0) "Нет предстоящих записей" else "Нет прошедших записей",
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
-                }
-                else -> LazyColumn(
-                    contentPadding = PaddingValues(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                else -> PullToRefreshBox(
+                    isRefreshing = isRefreshing,
+                    onRefresh    = { viewModel.loadAppointments(isRefresh = true) },
+                    modifier     = Modifier.fillMaxSize()
                 ) {
-                    items(list, key = { it.appointmentId }) { a ->
-                        AppointmentCard(
-                            a        = a,
-                            onCancel = { viewModel.cancel(a.appointmentId) }
-                        )
+                    if (list.isEmpty()) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                                Icon(
+                                    if (tab == 0) Icons.Default.CalendarToday else Icons.Default.History,
+                                    null, modifier = Modifier.size(64.dp),
+                                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                                Spacer(Modifier.height(12.dp))
+                                Text(if (tab == 0) "Нет предстоящих записей" else "Нет прошедших записей",
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                        }
+                    } else {
+                        LazyColumn(
+                            contentPadding = PaddingValues(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            items(list, key = { it.appointmentId }) { a ->
+                                AppointmentCard(a = a, onCancel = { viewModel.cancel(a.appointmentId) })
+                            }
+                        }
                     }
                 }
             }
@@ -140,213 +166,192 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun AppointmentCard(
-    a: AppointmentResponse,
-    onCancel: () -> Unit
-) {
-    var showDetail  by remember { mutableStateOf(false) }
-    var showConfirm by remember { mutableStateOf(false) }
+fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
+    var expanded by remember { mutableStateOf(false) }
+    var showCancelDialog by remember { mutableStateOf(false) }
 
-    if (showDetail) {
+    // Проверка — менее 24 часов до приёма?
+    val isWithin24h = remember(a.slotDate, a.slotTime) {
+        runCatching {
+            val slotDt = LocalDate.parse(a.slotDate).atTime(LocalTime.parse(a.slotTime))
+            ChronoUnit.HOURS.between(java.time.LocalDateTime.now(), slotDt) < 24
+        }.getOrDefault(false)
+    }
+
+    if (showCancelDialog) {
         AlertDialog(
-            onDismissRequest = { showDetail = false },
-            icon = {
-                Surface(shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(52.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.MedicalServices, null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp))
-                    }
-                }
-            },
-            title = { Text(a.doctorName, fontWeight = FontWeight.Bold) },
+            onDismissRequest = { showCancelDialog = false },
+            title = { Text("Отменить запись?") },
             text  = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    DetailRow(Icons.Default.LocalHospital, "Специализация", a.specializationName)
-                    DetailRow(Icons.Default.Business, "Клиника", a.clinicName)
-                    DetailRow(Icons.Default.LocationOn, "Адрес", a.clinicAddress)
-                    DetailRow(Icons.Default.CalendarMonth, "Дата",
-                        "${formatDate(a.slotDate)}  ${formatTime(a.slotTime)}")
-                    DetailRow(Icons.Default.Timer, "Длительность",
-                        "${a.durationMinutes} мин.")
-
-                    val statusText = when (a.status) {
-                        "scheduled" -> "Активна"
-                        "completed" -> "Завершена"
-                        "cancelled" -> "Отменена"
-                        else        -> a.status
-                    }
-                    val statusColor = when (a.status) {
-                        "scheduled" -> Color(0xFF1565C0)
-                        "completed" -> Color(0xFF2E7D32)
-                        "cancelled" -> MaterialTheme.colorScheme.error
-                        else        -> MaterialTheme.colorScheme.onSurfaceVariant
-                    }
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Info, null, modifier = Modifier.size(16.dp),
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(8.dp))
-                        Text("Статус: ", style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(statusText, style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.SemiBold, color = statusColor)
-                    }
-
-                    a.notes?.let {
-                        HorizontalDivider()
-                        Column {
-                            Text("📝 Примечание", fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary)
-                            Spacer(Modifier.height(4.dp))
-                            Text(it, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-
-                    // Если статус completed — показать блок диагноза/заключения
-                    if (a.status == "completed") {
-                        HorizontalDivider()
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                            shape = RoundedCornerShape(10.dp)
-                        ) {
-                            Column(modifier = Modifier.padding(12.dp)) {
-                                Text("🩺 Результат приёма", fontWeight = FontWeight.SemiBold,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.secondary)
-                                Spacer(Modifier.height(4.dp))
-                                Text("Заключение и диагноз доступны у лечащего врача или в медицинской карте.",
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Запись к ${a.doctorName} на ${formatDate(a.slotDate)} будет отменена.")
+                    if (isWithin24h) {
+                        Card(colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.errorContainer)) {
+                            Row(modifier = Modifier.padding(10.dp),
+                                verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.Warning, null,
+                                    tint = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(8.dp))
+                                Text("До приёма менее 24 часов. Возможен отказ в отмене.",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                                    color = MaterialTheme.colorScheme.onErrorContainer)
                             }
                         }
                     }
-
-                    Text("Создано: ${formatDate(a.createdAt)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             confirmButton = {
-                Row {
-                    if (a.status == "scheduled") {
-                        TextButton(
-                            onClick = { showDetail = false; showConfirm = true },
-                            colors  = ButtonDefaults.textButtonColors(
-                                contentColor = MaterialTheme.colorScheme.error)
-                        ) { Text("Отменить запись") }
-                    }
-                    Spacer(Modifier.width(8.dp))
-                    Button(onClick = { showDetail = false }) { Text("Закрыть") }
+                Button(onClick = { showCancelDialog = false; onCancel() },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error)) {
+                    Text("Отменить запись")
                 }
-            }
-        )
-    }
-
-    if (showConfirm) {
-        AlertDialog(
-            onDismissRequest = { showConfirm = false },
-            title = { Text("Отменить запись?") },
-            text  = { Text("Запись к ${a.doctorName} на ${formatDate(a.slotDate)} будет отменена.") },
-            confirmButton = {
-                TextButton(
-                    onClick = { showConfirm = false; onCancel() },
-                    colors  = ButtonDefaults.textButtonColors(
-                        contentColor = MaterialTheme.colorScheme.error)
-                ) { Text("Отменить запись") }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("Назад") }
+                TextButton(onClick = { showCancelDialog = false }) { Text("Назад") }
             }
         )
-    }
-
-    val statusColor = when (a.status) {
-        "scheduled" -> MaterialTheme.colorScheme.primary
-        "completed" -> Color(0xFF2E7D32)
-        "cancelled" -> MaterialTheme.colorScheme.error
-        else        -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val statusText = when (a.status) {
-        "scheduled" -> "Активна"
-        "completed" -> "Завершена"
-        "cancelled" -> "Отменена"
-        else        -> a.status
     }
 
     Card(
-        modifier  = Modifier.fillMaxWidth().clickable { showDetail = true },
+        modifier  = Modifier.fillMaxWidth().clickable { expanded = !expanded },
         shape     = RoundedCornerShape(16.dp),
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
+            // Шапка карточки
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(a.doctorName, fontWeight = FontWeight.SemiBold,
+                Column(Modifier.weight(1f)) {
+                    Text(a.doctorName, fontWeight = FontWeight.Bold,
                         style = MaterialTheme.typography.bodyLarge)
-                    Text(a.specializationName, color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium)
+                    Text(a.specializationName, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                AssistChip(
-                    onClick = {},
-                    label   = { Text(statusText, style = MaterialTheme.typography.labelSmall) },
-                    colors  = AssistChipDefaults.assistChipColors(labelColor = statusColor)
-                )
+                StatusChip(a.status)
             }
-            Spacer(Modifier.height(8.dp))
+
+            Spacer(Modifier.height(10.dp))
             HorizontalDivider()
-            Spacer(Modifier.height(8.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(6.dp))
-                Text("${formatDate(a.slotDate)}  ${formatTime(a.slotTime)}",
-                    style = MaterialTheme.typography.bodyMedium)
+            Spacer(Modifier.height(10.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                DetailRow(Icons.Default.CalendarMonth, "Дата", formatDate(a.slotDate))
+                DetailRow(Icons.Default.Schedule, "Время", formatTime(a.slotTime))
+                DetailRow(Icons.Default.Timer, "Длит.", "${a.durationMinutes} мин")
             }
-            Spacer(Modifier.height(4.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.LocationOn, null, modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.width(6.dp))
-                Text(a.clinicName, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            // Раскрытая часть
+            if (expanded) {
+                Spacer(Modifier.height(10.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+
+                DetailRow(Icons.Default.LocalHospital, "Клиника", a.clinicName)
+                Spacer(Modifier.height(6.dp))
+                DetailRow(Icons.Default.LocationOn, "Адрес", a.clinicAddress)
+
+                a.notes?.let {
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Column {
+                        Text("📝 Примечание", fontWeight = FontWeight.SemiBold,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary)
+                        Spacer(Modifier.height(4.dp))
+                        Text(it, style = MaterialTheme.typography.bodySmall)
+                    }
+                }
+
+                // Заключение врача
+                if (a.status == "completed") {
+                    Spacer(Modifier.height(10.dp))
+                    HorizontalDivider()
+                    Card(colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.secondaryContainer),
+                        shape = RoundedCornerShape(10.dp)) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(Icons.Default.MedicalServices, null,
+                                    tint = MaterialTheme.colorScheme.secondary,
+                                    modifier = Modifier.size(16.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Заключение врача", fontWeight = FontWeight.SemiBold,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.colorScheme.secondary)
+                            }
+                            Spacer(Modifier.height(6.dp))
+                            if (!a.doctorConclusion.isNullOrBlank()) {
+                                Text(a.doctorConclusion,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer)
+                            } else {
+                                Text("Заключение ещё не добавлено",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
+                            }
+                        }
+                    }
+                }
+
+                Text("Создано: ${formatDate(a.createdAt)}",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp))
+
+                // Кнопка отмены
+                if (a.status == "scheduled") {
+                    Spacer(Modifier.height(10.dp))
+                    OutlinedButton(
+                        onClick = { showCancelDialog = true },
+                        modifier = Modifier.fillMaxWidth(),
+                        shape    = RoundedCornerShape(10.dp),
+                        colors   = ButtonDefaults.outlinedButtonColors(
+                            contentColor = MaterialTheme.colorScheme.error)
+                    ) {
+                        Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(6.dp))
+                        Text("Отменить запись")
+                    }
+                }
             }
-            a.notes?.let {
-                Spacer(Modifier.height(4.dp))
-                Text("📝 $it", style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Row(modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                horizontalArrangement = Arrangement.End) {
-                Text("Подробнее", style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                    fontWeight = FontWeight.SemiBold)
-                Icon(Icons.Default.ChevronRight, null, modifier = Modifier.size(16.dp),
-                    tint = MaterialTheme.colorScheme.primary)
+
+            // Индикатор раскрытия
+            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Icon(
+                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
+                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
 }
 
 @Composable
-fun DetailRow(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String, value: String
-) {
+fun StatusChip(status: String) {
+    val (color, label) = when (status) {
+        "scheduled"  -> Color(0xFF1565C0) to "Запланирован"
+        "completed"  -> Color(0xFF2E7D32) to "Завершена"
+        "cancelled"  -> Color(0xFFB71C1C) to "Отменена"
+        else         -> MaterialTheme.colorScheme.onSurfaceVariant to status
+    }
+    Surface(shape = RoundedCornerShape(20.dp), color = color.copy(alpha = 0.12f)) {
+        Text(label, style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold, color = color,
+            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
+    }
+}
+
+@Composable
+fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
     Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(16.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(8.dp))
-        Text("$label: ", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(4.dp))
+        Column {
+            Text(label, style = MaterialTheme.typography.labelSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
+        }
     }
 }

@@ -21,11 +21,10 @@ interface EvaApi {
 
     @GET("doctors")
     suspend fun getDoctors(
-        @Query("specializationId") specializationId: Int? = null,
-        @Query("clinicId") clinicId: Int? = null,
+        @Query("specializationId") specializationId: Short? = null,
         @Query("search") search: String? = null,
         @Query("limit") limit: Int = 20,
-        @Query("offset") offset: Int = 0
+        @Query("offset") offset: Long = 0
     ): Response<DoctorListResponse>
 
     @GET("doctors/{id}")

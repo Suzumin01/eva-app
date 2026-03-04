@@ -248,8 +248,8 @@ fun EvaApp(startDestination: String) {
             ) { entry ->
                 val specId = entry.arguments?.getInt("specId")?.takeIf { it != -1 }
                 DoctorsScreen(initialSpecId = specId,
-                    onBack = { navController.popBackStack() },
-                    onDoctorClick = { navController.navigate(Screen.DoctorDetail.createRoute(it)) })
+                    onBack    = { navController.popBackStack() },
+                    onDoctor  = { navController.navigate(Screen.DoctorDetail.createRoute(it)) })
             }
             composable(Screen.DoctorDetail.route,
                 listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->

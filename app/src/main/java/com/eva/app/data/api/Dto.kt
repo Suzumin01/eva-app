@@ -126,6 +126,7 @@ data class AppointmentResponse(
     val durationMinutes: Int,
     val status: String,
     val notes: String?,
+    val doctorConclusion: String? = null,
     val createdAt: String
 )
 

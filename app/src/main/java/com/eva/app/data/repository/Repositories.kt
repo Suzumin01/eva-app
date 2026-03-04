@@ -74,13 +74,34 @@ class AuthRepository @Inject constructor(
 }
 
 @Singleton
-class DoctorRepository @Inject constructor(private val api: EvaApi) {
+class DoctorRepository @Inject constructor(
+    private val api: EvaApi,
+    private val cache: com.eva.app.data.local.room.DoctorCacheDao
+) {
 
     suspend fun getDoctors(
-        specializationId: Int? = null,
-        search: String? = null
-    ): Resource<DoctorListResponse> =
-        safeApiCall { api.getDoctors(specializationId = specializationId, search = search) }
+        specId: Int? = null, search: String? = null,
+        limit: Int = 20, offset: Long = 0
+    ): Resource<DoctorListResponse> {
+        return try {
+            val remote = safeApiCall { api.getDoctors(specId?.toShort(), search, limit, offset) }
+            if (remote is Resource.Success && offset == 0L) {
+                if (specId == null && search == null) {
+                    cache.upsertAll(remote.data.doctors.map { it.toCached() })
+                }
+            }
+            if (remote is Resource.Error && offset == 0L) {
+                val cached = if (!search.isNullOrBlank()) cache.search("%$search%") else cache.getAll()
+                if (cached.isNotEmpty()) {
+                    return Resource.Success(DoctorListResponse(
+                        doctors = cached.map { it.toResponse() }, total = cached.size))
+                }
+            }
+            remote
+        } catch (e: Exception) {
+            Resource.Error(e.message ?: "Ошибка загрузки врачей")
+        }
+    }
 
     suspend fun getDoctorById(id: Int): Resource<DoctorResponse> =
         safeApiCall { api.getDoctorById(id) }
@@ -102,6 +123,23 @@ class DoctorRepository @Inject constructor(private val api: EvaApi) {
 }
 
 @Singleton
+private fun DoctorResponse.toCached() = com.eva.app.data.local.room.CachedDoctor(
+    doctorId = doctorId, fullName = fullName,
+    specializationName = specializationName, clinicName = clinicName,
+    clinicAddress = clinicAddress, rating = rating,
+    experienceYears = experienceYears, reviewsCount = reviewsCount,
+    bio = bio, isActive = true
+)
+
+private fun com.eva.app.data.local.room.CachedDoctor.toResponse() = DoctorResponse(
+    doctorId = doctorId, fullName = fullName,
+    clinicId = 0, clinicName = clinicName,
+    clinicAddress = clinicAddress,
+    specializationId = 0, specializationName = specializationName,
+    rating = rating, experienceYears = experienceYears,
+    reviewsCount = reviewsCount, bio = bio, photoUrl = null
+)
+
 class ScheduleRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getSchedules(doctorId: Int, date: String? = null): Resource<List<ScheduleResponse>> =
         safeApiCall { api.getSchedules(doctorId, date) }
