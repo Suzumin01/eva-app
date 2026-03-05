@@ -130,6 +130,11 @@ data class AppointmentResponse(
     val createdAt: String
 )
 
+data class FcmTokenRequest(
+    val token: String,
+    val deviceId: String? = null
+)
+
 data class AnalyzeSymptomsRequest(
     val symptomsText: String
 )

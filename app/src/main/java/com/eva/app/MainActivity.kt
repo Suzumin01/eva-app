@@ -1,8 +1,12 @@
 package com.eva.app
 
+import android.Manifest
+import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -16,6 +20,10 @@ import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
 import com.eva.app.data.local.TokenManager
+import com.eva.app.data.repository.AuthRepository
+import com.google.firebase.messaging.FirebaseMessaging
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import com.eva.app.presentation.appointments.AppointmentsScreen
 import com.eva.app.presentation.auth.LoginScreen
 import com.eva.app.presentation.auth.RegisterScreen
@@ -47,15 +55,30 @@ import com.eva.app.ui.theme.EvaTheme
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
     @Inject lateinit var tokenManager: TokenManager
+    @Inject lateinit var authRepository: AuthRepository
+
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { }
+
+    private val pendingNotifId = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        }
+
+        // Читаем notifId из пуша (если запустились через клик на уведомление)
+        pendingNotifId.value = intent.getStringExtra("notifId")
         val hasToken       = runBlocking { tokenManager.token.first() } != null
         val onboardingDone = runBlocking { tokenManager.onboardingDone.first() }
         val consentShown   = runBlocking { tokenManager.consentShown.first() }
@@ -67,10 +90,32 @@ class MainActivity : ComponentActivity() {
             else            -> Screen.Home.route
         }
 
+        // Регистрируем FCM-токен если пользователь авторизован
+        if (hasToken) {
+            FirebaseMessaging.getInstance().token.addOnSuccessListener { fcmToken ->
+                CoroutineScope(Dispatchers.IO).launch {
+                    tokenManager.saveFcmToken(fcmToken)
+                    authRepository.saveFcmToken(fcmToken)
+                }
+            }
+        }
+
         setContent {
             val darkTheme by tokenManager.darkTheme.collectAsState(initial = false)
-            EvaTheme(darkTheme = darkTheme) { EvaApp(startDestination = start) }
+            EvaTheme(darkTheme = darkTheme) {
+                EvaApp(
+                    startDestination = start,
+                    pendingNotifId   = pendingNotifId.value,
+                    onNotifConsumed  = { pendingNotifId.value = null }
+                )
+            }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        pendingNotifId.value = intent.getStringExtra("notifId")
     }
 }
 
@@ -89,10 +134,22 @@ data class BottomItem(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun EvaApp(startDestination: String) {
+fun EvaApp(
+    startDestination: String,
+    pendingNotifId: String?  = null,
+    onNotifConsumed: () -> Unit = {}
+) {
     val navController = rememberNavController()
     val currentEntry  by navController.currentBackStackEntryAsState()
     val currentRoute  = currentEntry?.destination?.route
+
+    LaunchedEffect(pendingNotifId) {
+        val notifId = pendingNotifId ?: return@LaunchedEffect
+        // Сначала кладём Notifications в стек, затем открываем Detail
+        navController.navigate(Screen.Notifications.route) { launchSingleTop = true }
+        navController.navigate(Screen.NotificationDetail.createRoute(notifId)) { launchSingleTop = true }
+        onNotifConsumed()
+    }
 
     val bottomItems = listOf(
         BottomItem(Screen.Home,         Icons.Default.Home,          "Главная"),

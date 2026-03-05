@@ -51,6 +51,12 @@ interface EvaApi {
     @POST("appointments")
     suspend fun createAppointment(@Body request: CreateAppointmentRequest): Response<AppointmentResponse>
 
+    @POST("auth/fcm-token")
+    suspend fun saveFcmToken(@Body request: FcmTokenRequest): Response<Map<String, String>>
+
+    @DELETE("auth/fcm-token")
+    suspend fun deleteFcmToken(@Body request: FcmTokenRequest): Response<Map<String, String>>
+
     @GET("appointments")
     suspend fun getMyAppointments(
         @Query("status") status: String? = null

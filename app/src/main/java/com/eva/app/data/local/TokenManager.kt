@@ -27,6 +27,7 @@ class TokenManager @Inject constructor(
         private val ONBOARDING_DONE  = booleanPreferencesKey("onboarding_done")
         private val DARK_THEME       = booleanPreferencesKey("dark_theme")
         private val FAVORITES_KEY    = stringPreferencesKey("favorite_doctors")  // JSON array of IDs
+        // Health data — хранится локально (нет backend endpoint)
         private val ALLERGIES_KEY    = stringPreferencesKey("health_allergies")
         private val CHRONIC_KEY      = stringPreferencesKey("health_chronic")
         private val INSURANCE_KEY    = stringPreferencesKey("health_insurance")
@@ -55,6 +56,7 @@ class TokenManager @Inject constructor(
     suspend fun saveAuth(token: String, userId: String, fullName: String) {
         context.dataStore.edit { prefs ->
             val prevUserId = prefs[USER_ID_KEY]
+            // Сбрасываем согласие ТОЛЬКО при смене пользователя, не при каждом входе
             if (prevUserId != null && prevUserId != userId) {
                 prefs.remove(CONSENT_SHOWN)
                 prefs.remove(CONSENT_MEDICAL)
@@ -112,6 +114,14 @@ class TokenManager @Inject constructor(
             prefs.remove(CONSENT_AI)
             prefs.remove(CONSENT_PRIVACY)
             prefs.remove(CONSENT_SHOWN)
+            // Здоровье и избранное НЕ чистим — пусть остаются
         }
+    }
+    private val FCM_TOKEN_KEY = stringPreferencesKey("fcm_token")
+
+    val fcmToken: Flow<String?> = context.dataStore.data.map { it[FCM_TOKEN_KEY] }
+
+    suspend fun saveFcmToken(token: String) {
+        context.dataStore.edit { it[FCM_TOKEN_KEY] = token }
     }
 }

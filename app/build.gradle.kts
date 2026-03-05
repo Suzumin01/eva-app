@@ -4,6 +4,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
     id("kotlinx-serialization")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -100,6 +101,10 @@ dependencies {
 
     // SwipeRefresh / PullToRefresh (Material3 experimental)
     implementation("androidx.compose.material3:material3:1.3.1")
+
+    // Firebase
+    implementation(platform("com.google.firebase:firebase-bom:33.1.0"))
+    implementation("com.google.firebase:firebase-messaging-ktx")
 
     // Testing
     testImplementation(libs.junit)

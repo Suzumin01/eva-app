@@ -70,6 +70,18 @@ class AuthRepository @Inject constructor(
         return result
     }
 
+    suspend fun saveFcmToken(token: String): Resource<Unit> {
+        val result = safeApiCall { api.saveFcmToken(FcmTokenRequest(token)) }
+        return if (result is Resource.Success) Resource.Success(Unit)
+        else Resource.Error("Ошибка сохранения токена")
+    }
+
+    suspend fun deleteFcmToken(token: String): Resource<Unit> {
+        val result = safeApiCall { api.deleteFcmToken(FcmTokenRequest(token)) }
+        return if (result is Resource.Success) Resource.Success(Unit)
+        else Resource.Error("Ошибка удаления токена")
+    }
+
     suspend fun logout() = tokenManager.clearAuth()
 }
 
