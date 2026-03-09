@@ -32,7 +32,9 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
     val lon = clinic.longitude?.toDoubleOrNull()
 
     // URL для встроенного превью Яндекс Карт
-    val mapUrl = remember(lat, lon) {
+    val mapUrl = remember(clinic.latitude, clinic.longitude) {
+        val lat = clinic.latitude
+        val lon = clinic.longitude
         if (lat != null && lon != null) {
             "https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=$lon,$lat&z=15&l=map&size=600,300" +
                     "&pt=$lon,$lat,pm2rdm"
@@ -89,6 +91,7 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
                 Box(Modifier.fillMaxSize()) {
                     if (mapUrl != null) {
                         // Статичная карта через Яндекс Static Maps API
+                        // update вызывается при каждом изменении mapUrl (в т.ч. при смене темы)
                         AndroidView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
@@ -98,9 +101,9 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
                                     settings.useWideViewPort     = true
                                     settings.builtInZoomControls = false
                                     settings.displayZoomControls = false
-                                    loadUrl(mapUrl)
                                 }
                             },
+                            update = { webView -> webView.loadUrl(mapUrl) },
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {

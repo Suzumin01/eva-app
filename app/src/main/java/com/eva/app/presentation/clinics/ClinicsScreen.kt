@@ -104,6 +104,27 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
+                // Рейтинг и количество врачей
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    clinic.rating?.let { rating ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, null, modifier = Modifier.size(14.dp),
+                                tint = androidx.compose.ui.graphics.Color(0xFFFFA000))
+                            Spacer(Modifier.width(2.dp))
+                            Text(rating,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = FontWeight.SemiBold,
+                                color = MaterialTheme.colorScheme.onSurface)
+                        }
+                    }
+                    if (clinic.doctorsCount > 0) {
+                        Text("${clinic.doctorsCount} врачей",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                }
             }
             Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }

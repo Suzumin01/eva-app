@@ -353,7 +353,31 @@ fun EvaApp(
             }
             composable(Screen.SymptomsResult.route) {
                 SymptomsResultScreen(
-                    onBack    = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
+                    onBack       = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
+                    onFindDoctor = { specName ->
+                        // Маппинг названия специализации из AI → id фильтра врачей
+                        val specId = mapOf(
+                            "Терапия"          to 1,
+                            "Терапевт"         to 1,
+                            "Кардиология"      to 2,
+                            "Кардиолог"        to 2,
+                            "Неврология"       to 3,
+                            "Невролог"         to 3,
+                            "Ортопедия"        to 4,
+                            "Ортопед"          to 4,
+                            "Психология"       to 5,
+                            "Психолог"         to 5,
+                            "ЛОР"              to 6,
+                            "Педиатрия"        to 7,
+                            "Педиатр"          to 7,
+                            "Дерматология"     to 8,
+                            "Дерматолог"       to 8,
+                            "Гастроэнтерология" to 1  // нет отдельной — идём к терапевту
+                        )[specName]
+                        navController.navigate(Screen.Doctors.createRoute(specId = specId)) {
+                            launchSingleTop = true
+                        }
+                    },
                     viewModel = symptomsVm)
             }
 

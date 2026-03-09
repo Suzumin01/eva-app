@@ -95,7 +95,9 @@ data class ClinicResponse(
     val address: String,
     val phone: String?,
     val latitude: String?,
-    val longitude: String?
+    val longitude: String?,
+    val rating: String? = null,
+    val doctorsCount: Int = 0
 )
 
 data class ScheduleResponse(
@@ -148,6 +150,7 @@ data class AnalyzeSymptomsResponse(
     val modelVersion: String,
     val processingMs: Int?,
     val isStub: Boolean,
+    val specializationName: String? = null,
     val disclaimer: String
 )
 

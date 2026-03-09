@@ -6,7 +6,6 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -38,8 +37,10 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.time.LocalTime
+import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+
+private const val DAYS_PER_PAGE = 14
 
 @HiltViewModel
 class BookingViewModel @Inject constructor(
@@ -47,42 +48,106 @@ class BookingViewModel @Inject constructor(
     private val scheduleRepository: ScheduleRepository,
     private val appointmentRepository: AppointmentRepository
 ) : ViewModel() {
-    private val _doctor    = MutableStateFlow<DoctorResponse?>(null)
+
+    private val _doctor      = MutableStateFlow<DoctorResponse?>(null)
     val doctor = _doctor.asStateFlow()
-    private val _schedules = MutableStateFlow<List<ScheduleResponse>>(emptyList())
-    val schedules = _schedules.asStateFlow()
-    private val _isLoading = MutableStateFlow(false)
+
+    // Слоты хранятся по дате: date -> list of slots
+    private val _slotsByDate = MutableStateFlow<Map<String, List<ScheduleResponse>>>(emptyMap())
+    val slotsByDate = _slotsByDate.asStateFlow()
+
+    // Список дат с доступными слотами
+    private val _availableDates = MutableStateFlow<List<String>>(emptyList())
+    val availableDates = _availableDates.asStateFlow()
+
+    private val _isLoading      = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
-    private val _bookState = MutableStateFlow<BookState>(BookState.Idle)
+
+    private val _isLoadingMore  = MutableStateFlow(false)
+    val isLoadingMore = _isLoadingMore.asStateFlow()
+
+    private val _isLoadingSlots = MutableStateFlow(false)
+    val isLoadingSlots = _isLoadingSlots.asStateFlow()
+
+    private val _bookState      = MutableStateFlow<BookState>(BookState.Idle)
     val bookState = _bookState.asStateFlow()
 
-    fun load(doctorId: Int) {
+    private val _hasMoreDates   = MutableStateFlow(true)
+    val hasMoreDates = _hasMoreDates.asStateFlow()
+
+    private var doctorId = 0
+    private var loadedUntil: LocalDate = LocalDate.now()
+
+    fun load(id: Int) {
+        doctorId = id
         viewModelScope.launch {
             _isLoading.value = true
-            when (val r = doctorRepository.getDoctorById(doctorId)) {
+            when (val r = doctorRepository.getDoctorById(id)) {
                 is Resource.Success -> _doctor.value = r.data
                 else -> {}
             }
-            when (val r = scheduleRepository.getSchedules(doctorId)) {
-                is Resource.Success -> {
-                    val today = LocalDate.now()
-                    val now   = LocalTime.now()
-                    _schedules.value = r.data.filter { slot ->
-                        if (!slot.isAvailable) return@filter false
-                        val d = runCatching { LocalDate.parse(slot.slotDate) }.getOrNull()
-                            ?: return@filter false
-                        val t = runCatching { LocalTime.parse(slot.slotTime) }.getOrNull()
-                            ?: return@filter false
-                        d > today || (d == today && t > now)
-                    }
-                }
-                else -> {}
-            }
+            loadDateRange(LocalDate.now(), LocalDate.now().plusDays(DAYS_PER_PAGE.toLong()))
             _isLoading.value = false
         }
     }
 
-    fun book(doctorId: Int, scheduleId: Long, notes: String?) {
+    // Загрузка следующего диапазона дат
+    fun loadMoreDates() {
+        viewModelScope.launch {
+            _isLoadingMore.value = true
+            val from = loadedUntil.plusDays(1)
+            val to   = from.plusDays(DAYS_PER_PAGE.toLong())
+            loadDateRange(from, to)
+            _isLoadingMore.value = false
+        }
+    }
+
+    // Загрузка слотов конкретной даты (если ещё не загружены)
+    fun loadSlotsForDate(date: String) {
+        if (_slotsByDate.value.containsKey(date)) return
+        viewModelScope.launch {
+            _isLoadingSlots.value = true
+            when (val r = scheduleRepository.getSchedules(doctorId, date = date)) {
+                is Resource.Success -> {
+                    val slots = r.data.filter { it.isAvailable }
+                    _slotsByDate.value = _slotsByDate.value + (date to slots)
+                }
+                else -> {
+                    _slotsByDate.value = _slotsByDate.value + (date to emptyList())
+                }
+            }
+            _isLoadingSlots.value = false
+        }
+    }
+
+    private suspend fun loadDateRange(from: LocalDate, to: LocalDate) {
+        val fmt = DateTimeFormatter.ISO_LOCAL_DATE
+        when (val r = scheduleRepository.getSchedules(
+            doctorId = doctorId,
+            dateTo   = to.format(fmt)
+        )) {
+            is Resource.Success -> {
+                val slots = r.data.filter { it.isAvailable }
+                if (slots.isEmpty()) {
+                    _hasMoreDates.value = false
+                } else {
+                    // Добавляем слоты в кэш
+                    val grouped = slots.groupBy { it.slotDate }
+                    _slotsByDate.value = _slotsByDate.value + grouped
+
+                    // Обновляем список дат
+                    val newDates = (_availableDates.value + grouped.keys).distinct().sorted()
+                    _availableDates.value = newDates
+                    loadedUntil = to
+                    // Если меньше половины ожидаемых дат — скорее всего конец расписания
+                    _hasMoreDates.value = grouped.keys.size >= DAYS_PER_PAGE / 3
+                }
+            }
+            else -> _hasMoreDates.value = false
+        }
+    }
+
+    fun book(scheduleId: Long, notes: String?) {
         viewModelScope.launch {
             _bookState.value = BookState.Loading
             _bookState.value = when (val r =
@@ -101,7 +166,7 @@ sealed class BookState {
     object Idle    : BookState()
     object Loading : BookState()
     data class Success(val appt: AppointmentResponse) : BookState()
-    data class Error(val msg: String)   : BookState()
+    data class Error(val msg: String) : BookState()
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -112,10 +177,14 @@ fun BookingScreen(
     onSuccess: () -> Unit,
     viewModel: BookingViewModel = hiltViewModel()
 ) {
-    val doctor    by viewModel.doctor.collectAsState()
-    val schedules by viewModel.schedules.collectAsState()
-    val isLoading by viewModel.isLoading.collectAsState()
-    val bookState by viewModel.bookState.collectAsState()
+    val doctor         by viewModel.doctor.collectAsState()
+    val availableDates by viewModel.availableDates.collectAsState()
+    val slotsByDate    by viewModel.slotsByDate.collectAsState()
+    val isLoading      by viewModel.isLoading.collectAsState()
+    val isLoadingMore  by viewModel.isLoadingMore.collectAsState()
+    val isLoadingSlots by viewModel.isLoadingSlots.collectAsState()
+    val bookState      by viewModel.bookState.collectAsState()
+    val hasMoreDates   by viewModel.hasMoreDates.collectAsState()
 
     var selectedSlot by remember { mutableStateOf<ScheduleResponse?>(null) }
     var selectedDate by remember { mutableStateOf<String?>(null) }
@@ -125,21 +194,21 @@ fun BookingScreen(
     LaunchedEffect(doctorId) { viewModel.load(doctorId) }
     LaunchedEffect(bookState) { if (bookState is BookState.Success) onSuccess() }
 
-    val availableDates = remember(schedules) {
-        schedules.map { it.slotDate }.distinct().sorted()
-    }
-
+    // Автовыбор первой даты и загрузка её слотов
     LaunchedEffect(availableDates) {
         if (selectedDate == null && availableDates.isNotEmpty()) {
             selectedDate = availableDates.first()
+            viewModel.loadSlotsForDate(availableDates.first())
         }
     }
-
-    val slotsForDate = remember(schedules, selectedDate) {
-        schedules.filter { it.slotDate == selectedDate }.sortedBy { it.slotTime }
+    LaunchedEffect(selectedDate) {
+        selectedSlot = null
+        selectedDate?.let { viewModel.loadSlotsForDate(it) }
     }
 
-    LaunchedEffect(selectedDate) { selectedSlot = null }
+    val slotsForDate = remember(slotsByDate, selectedDate) {
+        selectedDate?.let { slotsByDate[it] }?.sortedBy { it.slotTime } ?: emptyList()
+    }
 
     if (showConfirm && selectedSlot != null) {
         AlertDialog(
@@ -161,7 +230,7 @@ fun BookingScreen(
             },
             confirmButton = {
                 Button(
-                    onClick  = { showConfirm = false; viewModel.book(doctorId, selectedSlot!!.scheduleId, notes.ifBlank { null }) },
+                    onClick  = { showConfirm = false; viewModel.book(selectedSlot!!.scheduleId, notes.ifBlank { null }) },
                     enabled  = bookState !is BookState.Loading
                 ) {
                     if (bookState is BookState.Loading)
@@ -233,7 +302,7 @@ fun BookingScreen(
             return@Scaffold
         }
 
-        if (availableDates.isEmpty()) {
+        if (availableDates.isEmpty() && !isLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.EventBusy, null, modifier = Modifier.size(64.dp),
@@ -253,7 +322,6 @@ fun BookingScreen(
             modifier = Modifier.padding(padding),
             contentPadding = PaddingValues(bottom = 16.dp)
         ) {
-
             doctor?.let { doc ->
                 item {
                     Card(
@@ -300,8 +368,8 @@ fun BookingScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         availableDates.forEach { date ->
-                            val isSel = selectedDate == date
-                            val dateSlots = schedules.count { it.slotDate == date }
+                            val isSel      = selectedDate == date
+                            val dateSlots  = slotsByDate[date]?.size
                             FilterChip(
                                 selected = isSel,
                                 onClick  = { selectedDate = date },
@@ -311,14 +379,35 @@ fun BookingScreen(
                                         Text(formatDateLabel(date),
                                             fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                             style = MaterialTheme.typography.labelMedium)
-                                        Text("$dateSlots слотов",
+                                        Text(
+                                            if (dateSlots != null) "$dateSlots слотов" else "...",
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer
-                                            else MaterialTheme.colorScheme.onSurfaceVariant)
+                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                        )
                                     }
                                 },
                                 shape = RoundedCornerShape(12.dp)
                             )
+                        }
+
+                        // Кнопка "Ещё даты"
+                        if (hasMoreDates) {
+                            if (isLoadingMore) {
+                                Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+                                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                                }
+                            } else {
+                                OutlinedButton(
+                                    onClick = { viewModel.loadMoreDates() },
+                                    shape   = RoundedCornerShape(12.dp),
+                                    modifier = Modifier.padding(vertical = 4.dp)
+                                ) {
+                                    Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
+                                    Spacer(Modifier.width(4.dp))
+                                    Text("Ещё", style = MaterialTheme.typography.labelMedium)
+                                }
+                            }
                         }
                     }
                     Spacer(Modifier.height(16.dp))
@@ -333,7 +422,13 @@ fun BookingScreen(
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(10.dp))
-                        if (slotsForDate.isEmpty()) {
+
+                        if (isLoadingSlots && !slotsByDate.containsKey(date)) {
+                            Box(Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                                contentAlignment = Alignment.Center) {
+                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                            }
+                        } else if (slotsForDate.isEmpty()) {
                             Text("Нет слотов на эту дату",
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall)
@@ -358,9 +453,7 @@ fun BookingScreen(
                                                     MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
                                                     RoundedCornerShape(10.dp)
                                                 )
-                                                .clickable {
-                                                    selectedSlot = if (isSel) null else slot
-                                                }
+                                                .clickable { selectedSlot = if (isSel) null else slot }
                                                 .padding(vertical = 11.dp),
                                             contentAlignment = Alignment.Center
                                         ) {

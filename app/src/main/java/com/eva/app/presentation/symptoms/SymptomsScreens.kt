@@ -352,6 +352,7 @@ fun SymptomsFormScreen(
 @Composable
 fun SymptomsResultScreen(
     onBack: () -> Unit,
+    onFindDoctor: (specializationName: String) -> Unit = {},
     viewModel: SymptomsViewModel = hiltViewModel()
 ) {
     val result by viewModel.result.collectAsState()
@@ -435,6 +436,44 @@ fun SymptomsResultScreen(
                             Spacer(Modifier.width(8.dp))
                             Text(r.disclaimer, style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onTertiaryContainer)
+                        }
+                    }
+                }
+                r.specializationName?.let { specName ->
+                    item {
+                        Card(
+                            colors = CardDefaults.cardColors(
+                                containerColor = MaterialTheme.colorScheme.primaryContainer),
+                            shape = RoundedCornerShape(14.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Column(modifier = Modifier.padding(16.dp)) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.MedicalServices, null,
+                                        modifier = Modifier.size(20.dp),
+                                        tint = MaterialTheme.colorScheme.primary)
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Рекомендуемая специализация",
+                                        fontWeight = FontWeight.SemiBold,
+                                        style = MaterialTheme.typography.labelLarge,
+                                        color = MaterialTheme.colorScheme.primary)
+                                }
+                                Spacer(Modifier.height(6.dp))
+                                Text(specName,
+                                    fontWeight = FontWeight.Bold,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                Spacer(Modifier.height(12.dp))
+                                Button(
+                                    onClick  = { onFindDoctor(specName) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    shape    = RoundedCornerShape(10.dp)
+                                ) {
+                                    Icon(Icons.Default.Search, null, Modifier.size(18.dp))
+                                    Spacer(Modifier.width(8.dp))
+                                    Text("Найти врача — $specName")
+                                }
+                            }
                         }
                     }
                 }

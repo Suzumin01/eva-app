@@ -45,7 +45,8 @@ interface EvaApi {
     @GET("schedules")
     suspend fun getSchedules(
         @Query("doctorId") doctorId: Int,
-        @Query("date") date: String? = null
+        @Query("date")     date: String? = null,
+        @Query("dateTo")   dateTo: String? = null
     ): Response<List<ScheduleResponse>>
 
     @POST("appointments")

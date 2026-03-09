@@ -153,8 +153,8 @@ private fun com.eva.app.data.local.room.CachedDoctor.toResponse() = DoctorRespon
 )
 
 class ScheduleRepository @Inject constructor(private val api: EvaApi) {
-    suspend fun getSchedules(doctorId: Int, date: String? = null): Resource<List<ScheduleResponse>> =
-        safeApiCall { api.getSchedules(doctorId, date) }
+    suspend fun getSchedules(doctorId: Int, date: String? = null, dateTo: String? = null): Resource<List<ScheduleResponse>> =
+        safeApiCall { api.getSchedules(doctorId, date, dateTo) }
 }
 
 @Singleton
