@@ -22,6 +22,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.repository.AppointmentRepository
+import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDate
 import com.eva.app.util.formatTime
@@ -38,8 +39,10 @@ import javax.inject.Inject
 class AppointmentsViewModel @Inject constructor(
     private val repository: AppointmentRepository
 ) : ViewModel() {
-    val upcoming   = MutableStateFlow<List<AppointmentResponse>>(emptyList())
-    val past       = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    private val _upcoming = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    val upcoming = _upcoming.asStateFlow()
+    private val _past     = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    val past = _past.asStateFlow()
     private val _isLoading  = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
     private val _isRefreshing = MutableStateFlow(false)
@@ -57,20 +60,20 @@ class AppointmentsViewModel @Inject constructor(
                     val all   = r.data
                     val today = LocalDate.now()
                     val now   = LocalTime.now()
-                    upcoming.value = all.filter { a ->
+                    _upcoming.value = all.filter { a ->
                         if (a.status == "cancelled") return@filter false
                         val d = runCatching { LocalDate.parse(a.slotDate) }.getOrNull() ?: return@filter false
                         val t = runCatching { LocalTime.parse(a.slotTime) }.getOrNull() ?: return@filter false
                         d > today || (d == today && t > now)
                     }.sortedBy { it.slotDate + it.slotTime }
-                    past.value = all.filter { a ->
+                    _past.value = all.filter { a ->
                         if (a.status == "cancelled") return@filter true
                         val d = runCatching { LocalDate.parse(a.slotDate) }.getOrNull() ?: return@filter false
                         val t = runCatching { LocalTime.parse(a.slotTime) }.getOrNull() ?: return@filter false
                         d < today || (d == today && t <= now)
                     }.sortedByDescending { it.slotDate + it.slotTime }
                 }
-                is Resource.Error -> _message.value = friendlyError(r.message)
+                is Resource.Error -> _message.value = ErrorMapper.map(r.message ?: "")
                 else -> {}
             }
             _isLoading.value = false
@@ -82,24 +85,13 @@ class AppointmentsViewModel @Inject constructor(
         viewModelScope.launch {
             when (val r = repository.cancelAppointment(id)) {
                 is Resource.Success -> { loadAppointments(); _message.value = "Запись отменена" }
-                is Resource.Error   -> _message.value = friendlyError(r.message)
+                is Resource.Error   -> _message.value = ErrorMapper.map(r.message ?: "")
                 else -> {}
             }
         }
     }
 
     fun clearMessage() { _message.value = null }
-
-    private fun friendlyError(raw: String?): String = when {
-        raw == null                          -> "Что-то пошло не так"
-        raw.contains("UnprocessableEntity") ||
-                raw.contains("422") ||
-                raw.contains("24 час")              -> "Отмена невозможна менее чем за 24 часа до приёма"
-        raw.contains("Unable to resolve")   -> "Нет подключения к интернету"
-        raw.contains("timeout", true)       -> "Сервер не отвечает, попробуйте позже"
-        raw.contains("401")                 -> "Сессия истекла, войдите снова"
-        else                                -> raw
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

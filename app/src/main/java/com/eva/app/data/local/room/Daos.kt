@@ -22,18 +22,3 @@ interface DoctorCacheDao {
     @Query("SELECT COUNT(*) FROM cached_doctors")
     suspend fun count(): Int
 }
-
-@Dao
-interface ClinicCacheDao {
-    @Query("SELECT * FROM cached_clinics ORDER BY clinicName ASC")
-    suspend fun getAll(): List<CachedClinic>
-
-    @Upsert
-    suspend fun upsertAll(clinics: List<CachedClinic>)
-
-    @Query("DELETE FROM cached_clinics")
-    suspend fun clear()
-
-    @Query("SELECT COUNT(*) FROM cached_clinics")
-    suspend fun count(): Int
-}

@@ -56,7 +56,10 @@ class AuthViewModel @Inject constructor(
             _registerState.value = AuthState.Loading
             _registerState.value = when (val r = authRepository.register(fullName, email, phone, password)) {
                 is Resource.Success -> AuthState.Success("Регистрация успешна")
-                is Resource.Error   -> AuthState.Error(ErrorMapper.map(r.message))
+                is Resource.Error   -> if (r.message == "REGISTERED_LOGIN_FAILED")
+                    AuthState.Success("Аккаунт создан. Войдите с вашими данными.")
+                else
+                    AuthState.Error(ErrorMapper.map(r.message))
                 else                -> AuthState.Error("Неизвестная ошибка")
             }
         }
@@ -159,11 +162,11 @@ fun LoginScreen(
                         trailingIcon = {
                             IconButton(onClick = { passVisible = !passVisible }) {
                                 Icon(if (passVisible) Icons.Default.VisibilityOff
-                                     else Icons.Default.Visibility, null)
+                                else Icons.Default.Visibility, null)
                             }
                         },
                         visualTransformation = if (passVisible) VisualTransformation.None
-                                               else PasswordVisualTransformation(),
+                        else PasswordVisualTransformation(),
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp))
@@ -285,11 +288,11 @@ fun RegisterScreen(
                 trailingIcon = {
                     IconButton(onClick = { passVisible = !passVisible }) {
                         Icon(if (passVisible) Icons.Default.VisibilityOff
-                             else Icons.Default.Visibility, null)
+                        else Icons.Default.Visibility, null)
                     }
                 },
                 visualTransformation = if (passVisible) VisualTransformation.None
-                                       else PasswordVisualTransformation(),
+                else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))

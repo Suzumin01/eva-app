@@ -18,7 +18,12 @@ suspend fun <T> safeApiCall(call: suspend () -> Response<T>): Resource<T> {
         if (response.isSuccessful && response.body() != null) {
             Resource.Success(response.body()!!)
         } else {
-            Resource.Error("Ошибка: ${response.code()} ${response.message()}")
+            val errorMessage = response.errorBody()?.string()
+                ?.let { body ->
+                    runCatching { org.json.JSONObject(body).getString("message") }.getOrNull()
+                }
+                ?: "Ошибка: ${response.code()}"
+            Resource.Error(errorMessage)
         }
     } catch (e: Exception) {
         Resource.Error("Нет соединения с сервером: ${e.localizedMessage}")
@@ -54,6 +59,8 @@ class AuthRepository @Inject constructor(
                     userId   = loginResult.data.userId,
                     fullName = loginResult.data.fullName
                 )
+            } else {
+                return Resource.Error("REGISTERED_LOGIN_FAILED")
             }
         }
         return result
@@ -152,6 +159,7 @@ private fun com.eva.app.data.local.room.CachedDoctor.toResponse() = DoctorRespon
     reviewsCount = reviewsCount, bio = bio, photoUrl = null
 )
 
+@Singleton
 class ScheduleRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getSchedules(doctorId: Int, date: String? = null, dateTo: String? = null): Resource<List<ScheduleResponse>> =
         safeApiCall { api.getSchedules(doctorId, date, dateTo) }
@@ -198,9 +206,19 @@ class DocumentRepository @Inject constructor(private val api: EvaApi) {
         safeApiCall { api.deleteDocument(id) }
 }
 
+@Singleton
+class ClinicRepository @Inject constructor(private val api: EvaApi) {
+    suspend fun getClinics(): Resource<List<ClinicResponse>> =
+        safeApiCall { api.getClinics() }
+}
+
+@Singleton
 class NotificationRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getNotifications(): Resource<List<NotificationResponse>> =
         safeApiCall { api.getNotifications() }
+
+    suspend fun markRead(id: String): Resource<MessageResponse> =
+        safeApiCall { api.markNotificationRead(id) }
 
     suspend fun markAllRead(): Resource<MessageResponse> =
         safeApiCall { api.markAllNotificationsRead() }

@@ -45,26 +45,28 @@ class DoctorsViewModel @Inject constructor(
     val hasMore = _hasMore.asStateFlow()
     private val _error        = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
-    val searchQuery   = MutableStateFlow("")
-    val selectedSpec  = MutableStateFlow<Int?>(null)
+    private val _searchQuery  = MutableStateFlow("")
+    val searchQuery  = _searchQuery.asStateFlow()
+    private val _selectedSpec = MutableStateFlow<Int?>(null)
+    val selectedSpec = _selectedSpec.asStateFlow()
 
-    val specializations = listOf(
-        null to "Все", 1 to "Терапевт", 2 to "Кардиолог", 3 to "Невролог",
-        4 to "Ортопед", 5 to "Психолог", 6 to "ЛОР", 7 to "Педиатр", 8 to "Дерматолог"
-    )
+    val specializations = com.eva.app.util.Specializations.forFilter
 
     private var currentOffset = 0L
 
     fun init(preselectedSpecId: Int?) {
         if (preselectedSpecId != null && preselectedSpecId != -1)
-            selectedSpec.value = preselectedSpecId
+            _selectedSpec.value = preselectedSpecId
         setupSearch()
     }
+
+    fun setSearch(query: String) { _searchQuery.value = query }
+    fun setSpec(specId: Int?) { _selectedSpec.value = specId }
 
     @OptIn(FlowPreview::class)
     fun setupSearch() {
         viewModelScope.launch {
-            combine(searchQuery.debounce(400), selectedSpec) { q, s -> q to s }
+            combine(_searchQuery.debounce(400), _selectedSpec) { q, s -> q to s }
                 .collect { (q, s) -> loadDoctors(search = q.ifBlank { null }, specId = s) }
         }
     }
@@ -80,7 +82,7 @@ class DoctorsViewModel @Inject constructor(
                     _doctors.value = r.data.doctors
                     _hasMore.value = r.data.doctors.size >= PAGE_SIZE
                 }
-                is Resource.Error -> _error.value = friendlyError(r.message)
+                is Resource.Error -> _error.value = com.eva.app.util.ErrorMapper.map(r.message ?: "")
                 else -> {}
             }
             _isLoading.value = false
@@ -93,8 +95,8 @@ class DoctorsViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingMore.value = true
             currentOffset += PAGE_SIZE
-            val q    = searchQuery.value.ifBlank { null }
-            val spec = selectedSpec.value
+            val q    = _searchQuery.value.ifBlank { null }
+            val spec = _selectedSpec.value
             when (val r = doctorRepository.getDoctors(spec, q, limit = PAGE_SIZE, offset = currentOffset)) {
                 is Resource.Success -> {
                     val newItems = r.data.doctors
@@ -108,13 +110,6 @@ class DoctorsViewModel @Inject constructor(
     }
 
     fun clearError() { _error.value = null }
-
-    private fun friendlyError(raw: String?): String = when {
-        raw == null                        -> "Что-то пошло не так"
-        raw.contains("Unable to resolve") -> "Нет подключения к интернету"
-        raw.contains("timeout", true)     -> "Сервер не отвечает, попробуйте позже"
-        else                               -> raw
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -168,12 +163,12 @@ fun DoctorsScreen(
             // Строка поиска
             OutlinedTextField(
                 value         = searchQuery,
-                onValueChange = { viewModel.searchQuery.value = it },
+                onValueChange = { viewModel.setSearch(it) },
                 placeholder   = { Text("Поиск по имени врача") },
                 leadingIcon   = { Icon(Icons.Default.Search, null) },
                 trailingIcon  = {
                     if (searchQuery.isNotEmpty())
-                        IconButton(onClick = { viewModel.searchQuery.value = "" }) {
+                        IconButton(onClick = { viewModel.setSearch("") }) {
                             Icon(Icons.Default.Clear, null)
                         }
                 },
@@ -209,8 +204,7 @@ fun DoctorsScreen(
                         DropdownMenuItem(
                             text    = { Text(name) },
                             onClick = {
-                                viewModel.selectedSpec.value = id
-                                viewModel.loadDoctors(search = searchQuery.ifBlank { null }, specId = id)
+                                viewModel.setSpec(id)   // combine сработает автоматически
                                 specExpanded = false
                             },
                             trailingIcon = if (selectedSpec == id) ({

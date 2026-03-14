@@ -18,8 +18,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.data.api.ClinicResponse
-import com.eva.app.data.api.EvaApi
-import com.eva.app.data.repository.safeApiCall
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -28,7 +26,9 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 @HiltViewModel
-class ClinicsViewModel @Inject constructor(private val api: EvaApi) : ViewModel() {
+class ClinicsViewModel @Inject constructor(
+    private val clinicRepository: com.eva.app.data.repository.ClinicRepository
+) : ViewModel() {
     private val _clinics   = MutableStateFlow<List<ClinicResponse>>(emptyList())
     val clinics = _clinics.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
@@ -37,7 +37,7 @@ class ClinicsViewModel @Inject constructor(private val api: EvaApi) : ViewModel(
     init {
         viewModelScope.launch {
             _isLoading.value = true
-            when (val r = safeApiCall { api.getClinics() }) {
+            when (val r = clinicRepository.getClinics()) {
                 is Resource.Success -> _clinics.value = r.data
                 else -> {}
             }
@@ -133,19 +133,24 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
 
 data class SpecItem(val id: Int, val name: String, val desc: String, val icon: ImageVector)
 
+/** Иконки хранятся здесь (Compose-зависимость), данные берём из Specializations.all */
+private val specIcons = mapOf(
+    1 to Icons.Default.MedicalServices,
+    2 to Icons.Default.Favorite,
+    3 to Icons.Default.Psychology,
+    4 to Icons.Default.AccessibilityNew,
+    5 to Icons.Default.SelfImprovement,
+    6 to Icons.Default.Hearing,
+    7 to Icons.Default.ChildCare,
+    8 to Icons.Default.Face
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
-    val specs = listOf(
-        SpecItem(1,"Терапевт","Первичная медицинская помощь",Icons.Default.MedicalServices),
-        SpecItem(2,"Кардиолог","Сердечно-сосудистая система",Icons.Default.Favorite),
-        SpecItem(3,"Невролог","Нервная система",Icons.Default.Psychology),
-        SpecItem(4,"Ортопед","Опорно-двигательный аппарат",Icons.Default.AccessibilityNew),
-        SpecItem(5,"Психолог","Психологическая помощь",Icons.Default.SelfImprovement),
-        SpecItem(6,"ЛОР","Ухо, горло, нос",Icons.Default.Hearing),
-        SpecItem(7,"Педиатр","Лечение детей",Icons.Default.ChildCare),
-        SpecItem(8,"Дерматолог","Кожные заболевания",Icons.Default.Face)
-    )
+    val specs = com.eva.app.util.Specializations.all.map { spec ->
+        SpecItem(spec.id, spec.name, spec.description, specIcons[spec.id] ?: Icons.Default.MedicalServices)
+    }
     Scaffold(topBar = {
         TopAppBar(title = { Text("Специализации") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },

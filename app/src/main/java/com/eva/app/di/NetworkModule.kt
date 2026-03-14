@@ -4,7 +4,6 @@ import android.content.Context
 import com.eva.app.BuildConfig
 import com.eva.app.data.local.room.AppDatabase
 import com.eva.app.data.local.room.DoctorCacheDao
-import com.eva.app.data.local.room.ClinicCacheDao
 import dagger.hilt.android.qualifiers.ApplicationContext
 import com.eva.app.data.api.EvaApi
 import com.eva.app.data.local.TokenManager
@@ -44,7 +43,8 @@ object NetworkModule {
     @Singleton
     fun provideOkHttpClient(authInterceptor: Interceptor): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
@@ -74,8 +74,6 @@ object NetworkModule {
         AppDatabase.getInstance(context)
 
     @Provides
+    @Singleton
     fun provideDoctorCacheDao(db: AppDatabase): DoctorCacheDao = db.doctorCacheDao()
-
-    @Provides
-    fun provideClinicCacheDao(db: AppDatabase): ClinicCacheDao = db.clinicCacheDao()
 }

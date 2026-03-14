@@ -19,10 +19,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.eva.app.data.api.EvaApi
 import com.eva.app.data.api.NotificationResponse
 import com.eva.app.data.repository.NotificationRepository
-import com.eva.app.data.repository.safeApiCall
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,8 +31,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 class NotificationsViewModel @Inject constructor(
-    private val repository: NotificationRepository,
-    private val api: EvaApi
+    private val repository: NotificationRepository
 ) : ViewModel() {
     private val _notifications = MutableStateFlow<List<NotificationResponse>>(emptyList())
     val notifications = _notifications.asStateFlow()
@@ -56,7 +53,7 @@ class NotificationsViewModel @Inject constructor(
 
     fun markRead(id: String) {
         viewModelScope.launch {
-            safeApiCall { api.markNotificationRead(id) }
+            repository.markRead(id)
             _notifications.value = _notifications.value.map {
                 if (it.notificationId == id) it.copy(isRead = true) else it
             }

@@ -151,7 +151,7 @@ data class AnalyzeSymptomsResponse(
     val processingMs: Int?,
     val isStub: Boolean,
     val specializationName: String? = null,
-    val disclaimer: String
+    val disclaimer: String = "⚠️ Данный анализ является предварительным и не заменяет консультацию врача."
 )
 
 data class SymptomsHistoryResponse(

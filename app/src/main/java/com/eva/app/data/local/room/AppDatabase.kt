@@ -6,13 +6,12 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [CachedDoctor::class, CachedClinic::class],
-    version  = 1,
+    entities = [CachedDoctor::class],
+    version  = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun doctorCacheDao(): DoctorCacheDao
-    abstract fun clinicCacheDao(): ClinicCacheDao
 
     companion object {
         @Volatile private var INSTANCE: AppDatabase? = null

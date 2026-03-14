@@ -30,6 +30,7 @@ import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -48,15 +49,16 @@ class HomeViewModel @Inject constructor(
     val favDoctors = _favDoctors.asStateFlow()
 
     init {
-        // Следим за списком избранных и загружаем данные врачей
+        // Следим за списком избранных и загружаем данные врачей параллельно
         viewModelScope.launch {
             tokenManager.favoriteDoctors.collect { json ->
                 val arr = runCatching { JSONArray(json) }.getOrDefault(JSONArray())
                 val ids = (0 until arr.length()).map { arr.getInt(it) }
                 if (ids.isEmpty()) { _favDoctors.value = emptyList(); return@collect }
-                // Загружаем каждого врача (параллельно через DoctorsScreen кэш нет, делаем запросы)
-                val loaded = ids.mapNotNull { id ->
-                    (doctorRepository.getDoctorById(id) as? Resource.Success)?.data
+                val loaded = kotlinx.coroutines.coroutineScope {
+                    ids.map { id ->
+                        async { (doctorRepository.getDoctorById(id) as? Resource.Success)?.data }
+                    }.mapNotNull { it.await() }
                 }
                 _favDoctors.value = loaded
             }

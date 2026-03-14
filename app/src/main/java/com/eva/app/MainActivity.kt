@@ -15,6 +15,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
@@ -22,7 +23,6 @@ import androidx.navigation.navArgument
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
 import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import com.eva.app.presentation.appointments.AppointmentsScreen
 import com.eva.app.presentation.auth.LoginScreen
@@ -93,7 +93,7 @@ class MainActivity : ComponentActivity() {
         // Регистрируем FCM-токен если пользователь авторизован
         if (hasToken) {
             FirebaseMessaging.getInstance().token.addOnSuccessListener { fcmToken ->
-                CoroutineScope(Dispatchers.IO).launch {
+                lifecycleScope.launch(Dispatchers.IO) {
                     tokenManager.saveFcmToken(fcmToken)
                     authRepository.saveFcmToken(fcmToken)
                 }
@@ -328,9 +328,9 @@ fun EvaApp(
             composable(Screen.Clinics.route) {
                 val vm = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>()
                 ClinicsScreen(onBack = { navController.popBackStack() },
-                    onClinicClick = { navController.navigate("clinic_detail/$it") }, viewModel = vm)
+                    onClinicClick = { navController.navigate(Screen.ClinicDetail.createRoute(it)) }, viewModel = vm)
             }
-            composable("clinic_detail/{clinicId}",
+            composable(Screen.ClinicDetail.route,
                 listOf(navArgument("clinicId") { type = NavType.IntType })) { entry ->
                 val clinicId    = entry.arguments?.getInt("clinicId") ?: return@composable
                 val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Clinics.route) }
@@ -356,24 +356,7 @@ fun EvaApp(
                     onBack       = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
                     onFindDoctor = { specName ->
                         // Маппинг названия специализации из AI → id фильтра врачей
-                        val specId = mapOf(
-                            "Терапия"          to 1,
-                            "Терапевт"         to 1,
-                            "Кардиология"      to 2,
-                            "Кардиолог"        to 2,
-                            "Неврология"       to 3,
-                            "Невролог"         to 3,
-                            "Ортопедия"        to 4,
-                            "Ортопед"          to 4,
-                            "Психология"       to 5,
-                            "Психолог"         to 5,
-                            "ЛОР"              to 6,
-                            "Педиатрия"        to 7,
-                            "Педиатр"          to 7,
-                            "Дерматология"     to 8,
-                            "Дерматолог"       to 8,
-                            "Гастроэнтерология" to 1  // нет отдельной — идём к терапевту
-                        )[specName]
+                        val specId = com.eva.app.util.Specializations.findIdByName(specName)
                         navController.navigate(Screen.Doctors.createRoute(specId = specId)) {
                             launchSingleTop = true
                         }

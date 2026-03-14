@@ -87,6 +87,17 @@ class BookingViewModel @Inject constructor(
                 else -> {}
             }
             loadDateRange(LocalDate.now(), LocalDate.now().plusDays(DAYS_PER_PAGE.toLong()))
+
+            // Если первый диапазон пустой (выходные / праздники) — автоматически
+            // листаем вперёд пока не найдём слоты или не выйдем за 90 дней
+            var attempts = 0
+            while (_availableDates.value.isEmpty() && _hasMoreDates.value && attempts < 4) {
+                val from = loadedUntil.plusDays(1)
+                val to   = from.plusDays(DAYS_PER_PAGE.toLong())
+                loadDateRange(from, to)
+                attempts++
+            }
+
             _isLoading.value = false
         }
     }
@@ -121,26 +132,35 @@ class BookingViewModel @Inject constructor(
     }
 
     private suspend fun loadDateRange(from: LocalDate, to: LocalDate) {
+        // Жёсткий лимит: не загружаем дальше 90 дней от сегодня
+        val maxDate = LocalDate.now().plusDays(90)
+        if (from.isAfter(maxDate)) {
+            _hasMoreDates.value = false
+            return
+        }
+
         val fmt = DateTimeFormatter.ISO_LOCAL_DATE
         when (val r = scheduleRepository.getSchedules(
             doctorId = doctorId,
+            date     = from.format(fmt),
             dateTo   = to.format(fmt)
         )) {
             is Resource.Success -> {
                 val slots = r.data.filter { it.isAvailable }
+                // Всегда обновляем loadedUntil — даже если диапазон пустой,
+                // чтобы следующий вызов шёл дальше, а не по тому же диапазону
+                loadedUntil = to
                 if (slots.isEmpty()) {
-                    _hasMoreDates.value = false
+                    // Пустой диапазон != конец расписания (могут быть выходные).
+                    // hasMoreDates остаётся true — пользователь может нажать "Ещё"
+                    // или load() автоматически продвинется дальше.
+                    _hasMoreDates.value = !from.isAfter(maxDate)
                 } else {
-                    // Добавляем слоты в кэш
-                    val grouped = slots.groupBy { it.slotDate }
+                    val grouped  = slots.groupBy { it.slotDate }
                     _slotsByDate.value = _slotsByDate.value + grouped
-
-                    // Обновляем список дат
                     val newDates = (_availableDates.value + grouped.keys).distinct().sorted()
                     _availableDates.value = newDates
-                    loadedUntil = to
-                    // Если меньше половины ожидаемых дат — скорее всего конец расписания
-                    _hasMoreDates.value = grouped.keys.size >= DAYS_PER_PAGE / 3
+                    _hasMoreDates.value  = true
                 }
             }
             else -> _hasMoreDates.value = false

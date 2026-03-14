@@ -15,6 +15,7 @@ import com.google.firebase.messaging.RemoteMessage
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -25,14 +26,22 @@ class EvaFirebaseService : FirebaseMessagingService() {
     @Inject lateinit var authRepository: AuthRepository
     @Inject lateinit var tokenManager: TokenManager
 
+    private val serviceJob   = SupervisorJob()
+    private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
+
     companion object {
         const val CHANNEL_ID   = "eva_appointments"
         const val CHANNEL_NAME = "Записи и напоминания"
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        serviceJob.cancel()
+    }
+
     override fun onNewToken(token: String) {
         super.onNewToken(token)
-        CoroutineScope(Dispatchers.IO).launch {
+        serviceScope.launch {
             val jwtToken = tokenManager.token.first()
             if (jwtToken != null) {
                 authRepository.saveFcmToken(token)
