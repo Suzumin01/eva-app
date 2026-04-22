@@ -18,8 +18,12 @@ class EvaApplication : Application() {
     override fun onCreate() {
         super.onCreate()
         appScope.launch {
-            tokenManager.token.collect { token ->
-                tokenManager.cachedToken = token
+            runCatching {
+                tokenManager.token.collect { token ->
+                    tokenManager.cachedToken = token
+                }
+            }.onFailure { e ->
+                android.util.Log.e("EvaApplication", "Ошибка чтения токена из DataStore", e)
             }
         }
     }

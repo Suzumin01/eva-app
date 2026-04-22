@@ -168,7 +168,6 @@ class DoctorRepository @Inject constructor(
         safeApiCall { api.addReview(doctorId, AddReviewRequest(rating, comment)) }
 }
 
-@Singleton
 private fun DoctorResponse.toCached() = com.eva.app.data.local.room.CachedDoctor(
     doctorId = doctorId, fullName = fullName,
     specializationName = specializationName, clinicName = clinicName,
