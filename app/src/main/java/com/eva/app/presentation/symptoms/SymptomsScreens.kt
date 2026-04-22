@@ -28,7 +28,9 @@ import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import com.eva.app.util.formatDate
 import javax.inject.Inject
@@ -50,6 +52,7 @@ class SymptomsViewModel @Inject constructor(
     val analyzeError = _analyzeError.asStateFlow()
 
     val userId = tokenManager.userId
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
     init { loadHistory() }
 

@@ -250,7 +250,11 @@ fun BookingScreen(
             },
             confirmButton = {
                 Button(
-                    onClick  = { showConfirm = false; viewModel.book(selectedSlot!!.scheduleId, notes.ifBlank { null }) },
+                    onClick  = {
+                        val slot = selectedSlot ?: return@Button
+                        showConfirm = false
+                        viewModel.book(slot.scheduleId, notes.ifBlank { null })
+                    },
                     enabled  = bookState !is BookState.Loading
                 ) {
                     if (bookState is BookState.Loading)
@@ -303,9 +307,10 @@ fun BookingScreen(
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp,
                                 color = Color.White)
                         } else {
+                            val slot = selectedSlot
                             Text(
-                                if (selectedSlot != null)
-                                    "Подтвердить: ${formatTime(selectedSlot!!.slotTime)}  ${formatDate(selectedSlot!!.slotDate)}"
+                                if (slot != null)
+                                    "Подтвердить: ${formatTime(slot.slotTime)}  ${formatDate(slot.slotDate)}"
                                 else "Выберите удобный слот",
                                 fontWeight = FontWeight.SemiBold
                             )

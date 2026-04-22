@@ -47,6 +47,7 @@ import com.eva.app.presentation.onboarding.OnboardingScreen
 import com.eva.app.presentation.profile.ProfileScreen
 import com.eva.app.presentation.settings.EditProfileScreen
 import com.eva.app.presentation.settings.SettingsScreen
+import com.eva.app.presentation.splash.SplashScreen
 import com.eva.app.presentation.symptoms.SymptomsFormScreen
 import com.eva.app.presentation.symptoms.SymptomsResultScreen
 import com.eva.app.presentation.symptoms.SymptomsScreen
@@ -56,7 +57,6 @@ import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.runBlocking
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -79,23 +79,16 @@ class MainActivity : ComponentActivity() {
 
         // Читаем notifId из пуша (если запустились через клик на уведомление)
         pendingNotifId.value = intent.getStringExtra("notifId")
-        val hasToken       = runBlocking { tokenManager.token.first() } != null
-        val onboardingDone = runBlocking { tokenManager.onboardingDone.first() }
-        val consentShown   = runBlocking { tokenManager.consentShown.first() }
 
-        val start = when {
-            !onboardingDone -> Screen.Onboarding.route
-            !hasToken       -> Screen.Login.route
-            !consentShown   -> Screen.Consent.route
-            else            -> Screen.Home.route
-        }
-
-        // Регистрируем FCM-токен если пользователь авторизован
-        if (hasToken) {
-            FirebaseMessaging.getInstance().token.addOnSuccessListener { fcmToken ->
-                lifecycleScope.launch(Dispatchers.IO) {
-                    tokenManager.saveFcmToken(fcmToken)
-                    authRepository.saveFcmToken(fcmToken)
+        // Регистрируем FCM-токен если пользователь авторизован — не блокируем main thread
+        lifecycleScope.launch(Dispatchers.IO) {
+            val hasToken = tokenManager.token.first() != null
+            if (hasToken) {
+                FirebaseMessaging.getInstance().token.addOnSuccessListener { fcmToken ->
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        tokenManager.saveFcmToken(fcmToken)
+                        authRepository.saveFcmToken(fcmToken)
+                    }
                 }
             }
         }
@@ -104,7 +97,7 @@ class MainActivity : ComponentActivity() {
             val darkTheme by tokenManager.darkTheme.collectAsState(initial = false)
             EvaTheme(darkTheme = darkTheme) {
                 EvaApp(
-                    startDestination = start,
+                    startDestination = Screen.Splash.route,
                     tokenManager     = tokenManager,
                     pendingNotifId   = pendingNotifId.value,
                     onNotifConsumed  = { pendingNotifId.value = null }
@@ -220,6 +213,12 @@ fun EvaApp(
         }
     ) { innerPadding ->
         NavHost(navController, startDestination, Modifier.padding(innerPadding)) {
+
+            composable(Screen.Splash.route) {
+                SplashScreen(onDestinationReady = { dest ->
+                    navController.navigate(dest) { popUpTo(Screen.Splash.route) { inclusive = true } }
+                })
+            }
 
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onDone = {

@@ -1,6 +1,7 @@
 package com.eva.app.presentation.navigation
 
 sealed class Screen(val route: String) {
+    object Splash            : Screen("splash")
     object Onboarding        : Screen("onboarding")
     object ConsentCheck      : Screen("consent_check")
     object Home              : Screen("home")
