@@ -25,7 +25,7 @@ import com.eva.app.data.api.ClinicResponse
 @SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
+fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors: (Int, String) -> Unit) {
     val context   = LocalContext.current
     val hasCoords = clinic.latitude != null && clinic.longitude != null
     val lat = clinic.latitude?.toDoubleOrNull()
@@ -204,6 +204,23 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit) {
                     }
 
                 }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Button(
+                onClick  = { onFindDoctors(clinic.clinicId, clinic.clinicName) },
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp)
+                    .height(52.dp),
+                shape  = RoundedCornerShape(14.dp)
+            ) {
+                Icon(Icons.Default.PersonSearch, null, modifier = Modifier.size(20.dp))
+                Spacer(Modifier.width(8.dp))
+                Text("Найти врачей в этой клинике",
+                    style = MaterialTheme.typography.bodyMedium,
+                    fontWeight = FontWeight.SemiBold)
             }
 
             Spacer(Modifier.height(24.dp))

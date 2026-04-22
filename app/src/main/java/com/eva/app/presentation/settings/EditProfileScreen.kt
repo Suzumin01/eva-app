@@ -80,11 +80,6 @@ class EditProfileViewModel @Inject constructor(
     private val _saved    = MutableStateFlow(false)
     val saved = _saved.asStateFlow()
 
-    val allergies       = tokenManager.allergies.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val chronicDiseases = tokenManager.chronicDiseases.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val insurancePolicy = tokenManager.insurancePolicy.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-    val dateOfBirth     = tokenManager.dateOfBirth.stateIn(viewModelScope, SharingStarted.Eagerly, "")
-
     init {
         viewModelScope.launch {
             when (val r = authRepository.getMe()) {
@@ -94,19 +89,30 @@ class EditProfileViewModel @Inject constructor(
         }
     }
 
-    fun save(fullName: String, phone: String, allergies: String,
-             chronic: String, insurance: String, dob: String) {
+    fun save(
+        fullName: String, phone: String,
+        allergies: String, chronic: String, insurance: String, dob: String
+    ) {
         viewModelScope.launch {
             _isSaving.value = true
             _error.value    = null
             val phoneDigits = phone.filter { it.isDigit() }
+            // Дата в формате dd.MM.yyyy → yyyy-MM-dd для сервера
+            val dobForServer = dob.takeIf { it.isNotBlank() }?.let { d ->
+                val parts = d.split(".")
+                if (parts.size == 3) "${parts[2]}-${parts[1]}-${parts[0]}" else null
+            }
             when (val r = authRepository.updateProfile(
-                fullName = fullName.trim().ifBlank { null },
-                phone    = phoneDigits.ifBlank { null }
+                fullName        = fullName.trim().ifBlank { null },
+                phone           = phoneDigits.ifBlank { null },
+                dateOfBirth     = dobForServer,
+                allergies       = allergies.trim(),
+                chronicDiseases = chronic.trim(),
+                insurancePolicy = insurance.trim()
             )) {
                 is Resource.Success -> {
-                    tokenManager.saveHealthData(allergies.trim(), chronic.trim(),
-                        insurance.trim(), dob)
+                    // Сохраняем имя локально для отображения в UI
+                    r.data?.fullName?.let { tokenManager.saveUserName(it) }
                     _saved.value = true
                 }
                 is Resource.Error -> _error.value = r.message ?: "Ошибка сохранения"
@@ -143,14 +149,19 @@ fun EditProfileScreen(
     var initialized by remember { mutableStateOf(false) }
 
     // Заполняем поля при загрузке (один раз)
-    LaunchedEffect(profile, viewModel.allergies.value) {
+    LaunchedEffect(profile) {
         if (!initialized && profile != null) {
             fullName  = profile!!.fullName
             phone     = profile!!.phone?.filter { it.isDigit() } ?: ""
-            allergies = viewModel.allergies.value
-            chronic   = viewModel.chronicDiseases.value
-            insurance = viewModel.insurancePolicy.value
-            dob       = viewModel.dateOfBirth.value
+            // Здоровье-поля теперь приходят с сервера
+            allergies = profile!!.allergies ?: ""
+            chronic   = profile!!.chronicDiseases ?: ""
+            insurance = profile!!.insurancePolicy ?: ""
+            // Дата с сервера: yyyy-MM-dd → dd.MM.yyyy
+            dob = profile!!.dateOfBirth?.let { iso ->
+                val parts = iso.split("-")
+                if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else ""
+            } ?: ""
             initialized = true
         }
     }
@@ -324,7 +335,7 @@ fun EditProfileScreen(
             }
 
             EditSection("Медицинские данные") {
-                Text("Хранятся только на устройстве и помогают врачу при осмотре",
+                Text("Данные сохраняются на сервере и автоматически прикрепляются к записям на приём",
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))

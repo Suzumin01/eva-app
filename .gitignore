@@ -13,3 +13,7 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Credentials
+app/google-services.json
+.idea/vcs.xml

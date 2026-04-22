@@ -139,7 +139,7 @@ fun SettingsScreen(
             SettingsSection(title = "О приложении") {
                 SettingsInfoRow(Icons.Default.Info,      "Версия",    "1.0.0")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                SettingsInfoRow(Icons.Default.Code,      "Разработчик", "EVA Team")
+                SettingsInfoRow(Icons.Default.Code,      "Разработчик", "ЕВА Team")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 SettingsInfoRow(Icons.Default.Description,"Лицензия",  "MIT")
             }

@@ -3,6 +3,7 @@ package com.eva.app.data.repository
 import com.eva.app.data.api.*
 import com.eva.app.data.local.TokenManager
 import com.eva.app.util.Resource
+import kotlinx.coroutines.flow.first
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -43,6 +44,13 @@ class AuthRepository @Inject constructor(
                 userId   = result.data.userId,
                 fullName = result.data.fullName
             )
+            // После входа (особенно при смене аккаунта) FCM-токен нужно заново
+            // привязать к новому userId на сервере — Firebase не вызывает onNewToken
+            // повторно, если токен устройства не изменился.
+            val fcmToken = tokenManager.fcmToken.first()
+            if (fcmToken != null) {
+                runCatching { api.saveFcmToken(FcmTokenRequest(fcmToken)) }
+            }
         }
         return result
     }
@@ -69,8 +77,24 @@ class AuthRepository @Inject constructor(
     suspend fun getMe(): Resource<UserProfileResponse> =
         safeApiCall { api.getMe() }
 
-    suspend fun updateProfile(fullName: String?, phone: String?): Resource<UserProfileResponse> {
-        val result = safeApiCall { api.updateProfile(UpdateProfileRequest(fullName, phone)) }
+    suspend fun updateProfile(
+        fullName: String?,
+        phone: String?,
+        dateOfBirth: String? = null,
+        allergies: String? = null,
+        chronicDiseases: String? = null,
+        insurancePolicy: String? = null
+    ): Resource<UserProfileResponse> {
+        val result = safeApiCall {
+            api.updateProfile(UpdateProfileRequest(
+                fullName        = fullName,
+                phone           = phone,
+                dateOfBirth     = dateOfBirth,
+                allergies       = allergies,
+                chronicDiseases = chronicDiseases,
+                insurancePolicy = insurancePolicy
+            ))
+        }
         if (result is Resource.Success && fullName != null) {
             tokenManager.saveUserName(fullName)
         }
@@ -99,17 +123,20 @@ class DoctorRepository @Inject constructor(
 ) {
 
     suspend fun getDoctors(
-        specId: Int? = null, search: String? = null,
+        specId: Int? = null, clinicId: Int? = null, search: String? = null,
         limit: Int = 20, offset: Long = 0
     ): Resource<DoctorListResponse> {
         return try {
-            val remote = safeApiCall { api.getDoctors(specId?.toShort(), search, limit, offset) }
+            val remote = safeApiCall {
+                api.getDoctors(specId?.toShort(), clinicId, search, limit, offset)
+            }
             if (remote is Resource.Success && offset == 0L) {
-                if (specId == null && search == null) {
+                // Кэшируем только при запросе без фильтров
+                if (specId == null && clinicId == null && search == null) {
                     cache.upsertAll(remote.data.doctors.map { it.toCached() })
                 }
             }
-            if (remote is Resource.Error && offset == 0L) {
+            if (remote is Resource.Error && offset == 0L && clinicId == null) {
                 val cached = if (!search.isNullOrBlank()) cache.search("%$search%") else cache.getAll()
                 if (cached.isNotEmpty()) {
                     return Resource.Success(DoctorListResponse(

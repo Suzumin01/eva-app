@@ -123,8 +123,8 @@ fun LoginScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text("EVA", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-            Text("E-Health Virtual Assistant",
+            Text("ЕВА", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+            Text("Единый врачебный ассистент",
                 color = Color.White.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.bodyMedium)
 
@@ -256,7 +256,7 @@ fun RegisterScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)) {
 
-            Text("Создайте аккаунт EVA",
+            Text("Создайте аккаунт ЕВА",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))

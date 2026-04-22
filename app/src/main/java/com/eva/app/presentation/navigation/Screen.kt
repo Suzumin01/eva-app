@@ -7,8 +7,9 @@ sealed class Screen(val route: String) {
     object Login             : Screen("login")
     object Register          : Screen("register")
     object Consent           : Screen("consent")
-    object Doctors           : Screen("doctors?specId={specId}") {
-        fun createRoute(specId: Int? = null) = "doctors?specId=${specId ?: -1}"
+    object Doctors           : Screen("doctors?specId={specId}&clinicId={clinicId}") {
+        fun createRoute(specId: Int? = null, clinicId: Int? = null) =
+            "doctors?specId=${specId ?: -1}&clinicId=${clinicId ?: -1}"
     }
     object DoctorDetail      : Screen("doctor_detail/{doctorId}") {
         fun createRoute(id: Int) = "doctor_detail/$id"

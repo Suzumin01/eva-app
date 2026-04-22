@@ -33,51 +33,82 @@ private const val PAGE_SIZE = 20
 class DoctorsViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository
 ) : ViewModel() {
-    private val _doctors      = MutableStateFlow<List<DoctorResponse>>(emptyList())
+    private val _doctors       = MutableStateFlow<List<DoctorResponse>>(emptyList())
     val doctors = _doctors.asStateFlow()
-    private val _isLoading    = MutableStateFlow(false)
+    private val _isLoading     = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
-    private val _isRefreshing = MutableStateFlow(false)
+    private val _isRefreshing  = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
     private val _isLoadingMore = MutableStateFlow(false)
     val isLoadingMore = _isLoadingMore.asStateFlow()
-    private val _hasMore      = MutableStateFlow(true)
+    private val _hasMore       = MutableStateFlow(true)
     val hasMore = _hasMore.asStateFlow()
-    private val _error        = MutableStateFlow<String?>(null)
+    private val _error         = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
-    private val _searchQuery  = MutableStateFlow("")
+    private val _searchQuery   = MutableStateFlow("")
     val searchQuery  = _searchQuery.asStateFlow()
-    private val _selectedSpec = MutableStateFlow<Int?>(null)
+    private val _selectedSpec  = MutableStateFlow<Int?>(null)
     val selectedSpec = _selectedSpec.asStateFlow()
+    // Фильтр по клинике
+    private val _selectedClinicId   = MutableStateFlow<Int?>(null)
+    val selectedClinicId = _selectedClinicId.asStateFlow()
+    private val _selectedClinicName = MutableStateFlow<String?>(null)
+    val selectedClinicName = _selectedClinicName.asStateFlow()
 
     val specializations = com.eva.app.util.Specializations.forFilter
 
     private var currentOffset = 0L
 
-    fun init(preselectedSpecId: Int?) {
+    fun init(
+        preselectedSpecId: Int?,
+        preselectedClinicId: Int? = null,
+        clinicName: String? = null
+    ) {
         if (preselectedSpecId != null && preselectedSpecId != -1)
             _selectedSpec.value = preselectedSpecId
+        if (preselectedClinicId != null && preselectedClinicId != -1) {
+            _selectedClinicId.value   = preselectedClinicId
+            _selectedClinicName.value = clinicName
+        }
         setupSearch()
     }
 
     fun setSearch(query: String) { _searchQuery.value = query }
     fun setSpec(specId: Int?) { _selectedSpec.value = specId }
+    fun clearClinicFilter() {
+        _selectedClinicId.value   = null
+        _selectedClinicName.value = null
+    }
 
     @OptIn(FlowPreview::class)
     fun setupSearch() {
         viewModelScope.launch {
-            combine(_searchQuery.debounce(400), _selectedSpec) { q, s -> q to s }
-                .collect { (q, s) -> loadDoctors(search = q.ifBlank { null }, specId = s) }
+            combine(
+                _searchQuery.debounce(400),
+                _selectedSpec,
+                _selectedClinicId
+            ) { q, s, c -> Triple(q, s, c) }
+                .collect { (q, s, c) ->
+                    loadDoctors(search = q.ifBlank { null }, specId = s, clinicId = c)
+                }
         }
     }
 
-    fun loadDoctors(search: String? = null, specId: Int? = null, isRefresh: Boolean = false) {
+    fun loadDoctors(
+        search: String? = null,
+        specId: Int? = null,
+        clinicId: Int? = null,
+        isRefresh: Boolean = false
+    ) {
         viewModelScope.launch {
             if (isRefresh) _isRefreshing.value = true else _isLoading.value = true
             _error.value = null
             currentOffset = 0L
             _hasMore.value = true
-            when (val r = doctorRepository.getDoctors(specId, search, limit = PAGE_SIZE, offset = 0)) {
+            when (val r = doctorRepository.getDoctors(
+                specId = specId, clinicId = clinicId,
+                search = search, limit = PAGE_SIZE, offset = 0
+            )) {
                 is Resource.Success -> {
                     _doctors.value = r.data.doctors
                     _hasMore.value = r.data.doctors.size >= PAGE_SIZE
@@ -95,13 +126,16 @@ class DoctorsViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoadingMore.value = true
             currentOffset += PAGE_SIZE
-            val q    = _searchQuery.value.ifBlank { null }
-            val spec = _selectedSpec.value
-            when (val r = doctorRepository.getDoctors(spec, q, limit = PAGE_SIZE, offset = currentOffset)) {
+            val q      = _searchQuery.value.ifBlank { null }
+            val spec   = _selectedSpec.value
+            val clinic = _selectedClinicId.value
+            when (val r = doctorRepository.getDoctors(
+                specId = spec, clinicId = clinic,
+                search = q, limit = PAGE_SIZE, offset = currentOffset
+            )) {
                 is Resource.Success -> {
-                    val newItems = r.data.doctors
-                    _doctors.value = _doctors.value + newItems
-                    _hasMore.value = newItems.size >= PAGE_SIZE
+                    _doctors.value = _doctors.value + r.data.doctors
+                    _hasMore.value = r.data.doctors.size >= PAGE_SIZE
                 }
                 else -> {}
             }
@@ -116,25 +150,28 @@ class DoctorsViewModel @Inject constructor(
 @Composable
 fun DoctorsScreen(
     initialSpecId: Int?,
+    initialClinicId: Int? = null,
+    initialClinicName: String? = null,
     onBack: () -> Unit,
     onDoctor: (Int) -> Unit,
     viewModel: DoctorsViewModel = hiltViewModel()
 ) {
-    val doctors      by viewModel.doctors.collectAsState()
-    val isLoading    by viewModel.isLoading.collectAsState()
-    val isRefreshing by viewModel.isRefreshing.collectAsState()
-    val isLoadingMore by viewModel.isLoadingMore.collectAsState()
-    val hasMore      by viewModel.hasMore.collectAsState()
-    val error        by viewModel.error.collectAsState()
-    val searchQuery  by viewModel.searchQuery.collectAsState()
-    val selectedSpec by viewModel.selectedSpec.collectAsState()
-    val listState     = rememberLazyListState()
-    val snackbar      = remember { SnackbarHostState() }
+    val doctors          by viewModel.doctors.collectAsState()
+    val isLoading        by viewModel.isLoading.collectAsState()
+    val isRefreshing     by viewModel.isRefreshing.collectAsState()
+    val isLoadingMore    by viewModel.isLoadingMore.collectAsState()
+    val hasMore          by viewModel.hasMore.collectAsState()
+    val error            by viewModel.error.collectAsState()
+    val searchQuery      by viewModel.searchQuery.collectAsState()
+    val selectedSpec     by viewModel.selectedSpec.collectAsState()
+    val selectedClinicId   by viewModel.selectedClinicId.collectAsState()
+    val selectedClinicName by viewModel.selectedClinicName.collectAsState()
+    val listState         = rememberLazyListState()
+    val snackbar          = remember { SnackbarHostState() }
 
-    LaunchedEffect(Unit) { viewModel.init(initialSpecId) }
+    LaunchedEffect(Unit) { viewModel.init(initialSpecId, initialClinicId, initialClinicName) }
     LaunchedEffect(error) { error?.let { snackbar.showSnackbar(it); viewModel.clearError() } }
 
-    // Подгрузка при достижении конца списка
     val shouldLoadMore by remember {
         derivedStateOf {
             val lastVisible = listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
@@ -160,6 +197,7 @@ fun DoctorsScreen(
         }
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
+
             // Строка поиска
             OutlinedTextField(
                 value         = searchQuery,
@@ -177,7 +215,33 @@ fun DoctorsScreen(
                 singleLine = true
             )
 
-            // Фильтр специализаций — выпадающий список
+            // Активный фильтр по клинике — чип с кнопкой удаления
+            if (selectedClinicId != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                        .padding(bottom = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    FilterChip(
+                        selected = true,
+                        onClick  = {},
+                        label    = { Text(selectedClinicName ?: "Клиника #$selectedClinicId") },
+                        leadingIcon = {
+                            Icon(Icons.Default.LocalHospital, null, Modifier.size(16.dp))
+                        },
+                        trailingIcon = {
+                            IconButton(
+                                onClick  = { viewModel.clearClinicFilter() },
+                                modifier = Modifier.size(18.dp)
+                            ) { Icon(Icons.Default.Close, "Снять фильтр", Modifier.size(14.dp)) }
+                        }
+                    )
+                }
+            }
+
+            // Фильтр специализаций
             var specExpanded by remember { mutableStateOf(false) }
             val selectedSpecName = viewModel.specializations
                 .firstOrNull { it.first == selectedSpec }?.second ?: "Все специализации"
@@ -204,7 +268,7 @@ fun DoctorsScreen(
                         DropdownMenuItem(
                             text    = { Text(name) },
                             onClick = {
-                                viewModel.setSpec(id)   // combine сработает автоматически
+                                viewModel.setSpec(id)
                                 specExpanded = false
                             },
                             trailingIcon = if (selectedSpec == id) ({
@@ -222,9 +286,14 @@ fun DoctorsScreen(
                 }
                 else -> PullToRefreshBox(
                     isRefreshing = isRefreshing,
-                    onRefresh    = { viewModel.loadDoctors(
-                        search = searchQuery.ifBlank { null },
-                        specId = selectedSpec, isRefresh = true) },
+                    onRefresh    = {
+                        viewModel.loadDoctors(
+                            search   = searchQuery.ifBlank { null },
+                            specId   = selectedSpec,
+                            clinicId = selectedClinicId,
+                            isRefresh = true
+                        )
+                    },
                     modifier = Modifier.fillMaxSize()
                 ) {
                     if (doctors.isEmpty()) {

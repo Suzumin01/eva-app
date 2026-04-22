@@ -55,7 +55,7 @@ fun OnboardingScreen(
     val pages = listOf(
         OnboardingPage(
             icon = Icons.Default.HealthAndSafety,
-            title = "Добро пожаловать в EVA",
+            title = "Добро пожаловать в ЕВА",
             description = "Ваш персональный медицинский помощник.\nЗаписывайтесь к врачам, отслеживайте здоровье\nи получайте AI-консультации.",
             gradientStart = Color(0xFF0D47A1),
             gradientEnd   = Color(0xFF1976D2)

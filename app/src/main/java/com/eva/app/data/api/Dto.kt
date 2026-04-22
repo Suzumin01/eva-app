@@ -31,12 +31,20 @@ data class UserProfileResponse(
     val role: String,
     val isActive: Boolean,
     val consentMedical: Boolean,
-    val consentAi: Boolean
+    val consentAi: Boolean,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val chronicDiseases: String? = null,
+    val insurancePolicy: String? = null
 )
 
 data class UpdateProfileRequest(
     val fullName: String?,
-    val phone: String?
+    val phone: String?,
+    val dateOfBirth: String? = null,
+    val allergies: String? = null,
+    val chronicDiseases: String? = null,
+    val insurancePolicy: String? = null
 )
 
 data class DocumentResponse(
@@ -129,6 +137,7 @@ data class AppointmentResponse(
     val status: String,
     val notes: String?,
     val doctorConclusion: String? = null,
+    val patientHealthInfo: String? = null,
     val createdAt: String
 )
 

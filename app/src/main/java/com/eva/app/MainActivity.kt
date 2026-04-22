@@ -160,7 +160,7 @@ fun EvaApp(
     val bottomRoutes = bottomItems.map { it.screen.route }
     val showBottom   = currentRoute in bottomRoutes
     val topTitles    = mapOf(
-        Screen.Home.route         to "EVA",
+        Screen.Home.route         to "ЕВА",
         Screen.Appointments.route to "Мои записи",
         Screen.Symptoms.route     to "AI-анализ",
         Screen.Profile.route      to "Профиль"
@@ -173,7 +173,7 @@ fun EvaApp(
         topBar = {
             if (showBottom) {
                 TopAppBar(
-                    title   = { Text(topTitles[currentRoute] ?: "EVA") },
+                    title   = { Text(topTitles[currentRoute] ?: "ЕВА") },
                     actions = {
                         IconButton(onClick = { navController.navigate(Screen.Notifications.route) }) {
                             Icon(Icons.Default.Notifications, null,
@@ -301,12 +301,20 @@ fun EvaApp(
             }
 
             composable(Screen.Doctors.route,
-                listOf(navArgument("specId") { type = NavType.IntType; defaultValue = -1 })
+                listOf(
+                    navArgument("specId")   { type = NavType.IntType; defaultValue = -1 },
+                    navArgument("clinicId") { type = NavType.IntType; defaultValue = -1 }
+                )
             ) { entry ->
-                val specId = entry.arguments?.getInt("specId")?.takeIf { it != -1 }
-                DoctorsScreen(initialSpecId = specId,
-                    onBack    = { navController.popBackStack() },
-                    onDoctor  = { navController.navigate(Screen.DoctorDetail.createRoute(it)) })
+                val specId   = entry.arguments?.getInt("specId")?.takeIf   { it != -1 }
+                val clinicId = entry.arguments?.getInt("clinicId")?.takeIf { it != -1 }
+                DoctorsScreen(
+                    initialSpecId     = specId,
+                    initialClinicId   = clinicId,
+                    initialClinicName = null,
+                    onBack   = { navController.popBackStack() },
+                    onDoctor = { navController.navigate(Screen.DoctorDetail.createRoute(it)) }
+                )
             }
             composable(Screen.DoctorDetail.route,
                 listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->
@@ -336,7 +344,13 @@ fun EvaApp(
                 val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Clinics.route) }
                 val clinicsVm   = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>(parentEntry)
                 val clinic      = clinicsVm.getById(clinicId)
-                if (clinic != null) ClinicDetailScreen(clinic = clinic, onBack = { navController.popBackStack() })
+                if (clinic != null) ClinicDetailScreen(
+                    clinic = clinic,
+                    onBack = { navController.popBackStack() },
+                    onFindDoctors = { id, _ ->
+                        navController.navigate(Screen.Doctors.createRoute(clinicId = id))
+                    }
+                )
                 else LaunchedEffect(Unit) { navController.popBackStack() }
             }
             composable(Screen.Specializations.route) {
