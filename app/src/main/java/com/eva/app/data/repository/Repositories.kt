@@ -240,6 +240,12 @@ class ClinicRepository @Inject constructor(private val api: EvaApi) {
 }
 
 @Singleton
+class SpecializationRepository @Inject constructor(private val api: EvaApi) {
+    suspend fun getSpecializations(): Resource<List<com.eva.app.data.api.SpecializationResponse>> =
+        safeApiCall { api.getSpecializations() }
+}
+
+@Singleton
 class NotificationRepository @Inject constructor(private val api: EvaApi) {
     suspend fun getNotifications(): Resource<List<NotificationResponse>> =
         safeApiCall { api.getNotifications() }

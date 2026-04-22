@@ -20,6 +20,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.data.api.DoctorResponse
 import com.eva.app.data.repository.DoctorRepository
+import com.eva.app.data.repository.SpecializationRepository
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
@@ -31,7 +32,8 @@ private const val PAGE_SIZE = 20
 
 @HiltViewModel
 class DoctorsViewModel @Inject constructor(
-    private val doctorRepository: DoctorRepository
+    private val doctorRepository: DoctorRepository,
+    private val specializationRepository: SpecializationRepository
 ) : ViewModel() {
     private val _doctors       = MutableStateFlow<List<DoctorResponse>>(emptyList())
     val doctors = _doctors.asStateFlow()
@@ -55,9 +57,22 @@ class DoctorsViewModel @Inject constructor(
     private val _selectedClinicName = MutableStateFlow<String?>(null)
     val selectedClinicName = _selectedClinicName.asStateFlow()
 
-    val specializations = com.eva.app.util.Specializations.forFilter
+    private val _specializations = MutableStateFlow(com.eva.app.util.Specializations.forFilter)
+    val specializations = _specializations.asStateFlow()
 
     private var currentOffset = 0L
+
+    init {
+        viewModelScope.launch {
+            when (val result = specializationRepository.getSpecializations()) {
+                is Resource.Success -> {
+                    _specializations.value = listOf(null to "Все") +
+                        result.data.map { it.specializationId to it.name }
+                }
+                else -> {}
+            }
+        }
+    }
 
     fun init(
         preselectedSpecId: Int?,
@@ -156,16 +171,17 @@ fun DoctorsScreen(
     onDoctor: (Int) -> Unit,
     viewModel: DoctorsViewModel = hiltViewModel()
 ) {
-    val doctors          by viewModel.doctors.collectAsState()
-    val isLoading        by viewModel.isLoading.collectAsState()
-    val isRefreshing     by viewModel.isRefreshing.collectAsState()
-    val isLoadingMore    by viewModel.isLoadingMore.collectAsState()
-    val hasMore          by viewModel.hasMore.collectAsState()
-    val error            by viewModel.error.collectAsState()
-    val searchQuery      by viewModel.searchQuery.collectAsState()
-    val selectedSpec     by viewModel.selectedSpec.collectAsState()
+    val doctors            by viewModel.doctors.collectAsState()
+    val isLoading          by viewModel.isLoading.collectAsState()
+    val isRefreshing       by viewModel.isRefreshing.collectAsState()
+    val isLoadingMore      by viewModel.isLoadingMore.collectAsState()
+    val hasMore            by viewModel.hasMore.collectAsState()
+    val error              by viewModel.error.collectAsState()
+    val searchQuery        by viewModel.searchQuery.collectAsState()
+    val selectedSpec       by viewModel.selectedSpec.collectAsState()
     val selectedClinicId   by viewModel.selectedClinicId.collectAsState()
     val selectedClinicName by viewModel.selectedClinicName.collectAsState()
+    val specializations    by viewModel.specializations.collectAsState()
     val listState         = rememberLazyListState()
     val snackbar          = remember { SnackbarHostState() }
 
@@ -243,7 +259,7 @@ fun DoctorsScreen(
 
             // Фильтр специализаций
             var specExpanded by remember { mutableStateOf(false) }
-            val selectedSpecName = viewModel.specializations
+            val selectedSpecName = specializations
                 .firstOrNull { it.first == selectedSpec }?.second ?: "Все специализации"
             ExposedDropdownMenuBox(
                 expanded  = specExpanded,
@@ -264,7 +280,7 @@ fun DoctorsScreen(
                     expanded = specExpanded,
                     onDismissRequest = { specExpanded = false }
                 ) {
-                    viewModel.specializations.forEach { (id, name) ->
+                    specializations.forEach { (id, name) ->
                         DropdownMenuItem(
                             text    = { Text(name) },
                             onClick = {

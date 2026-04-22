@@ -18,6 +18,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.data.api.ClinicResponse
+import com.eva.app.data.api.SpecializationResponse
+import com.eva.app.data.repository.SpecializationRepository
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -133,7 +135,7 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
 
 data class SpecItem(val id: Int, val name: String, val desc: String, val icon: ImageVector)
 
-/** Иконки хранятся здесь (Compose-зависимость), данные берём из Specializations.all */
+/** Иконки хранятся здесь (Compose-зависимость), данные берём из API или из локального fallback */
 private val specIcons = mapOf(
     1 to Icons.Default.MedicalServices,
     2 to Icons.Default.Favorite,
@@ -145,12 +147,39 @@ private val specIcons = mapOf(
     8 to Icons.Default.Face
 )
 
+@HiltViewModel
+class SpecializationsViewModel @Inject constructor(
+    private val specializationRepository: SpecializationRepository
+) : ViewModel() {
+    private val fallback = com.eva.app.util.Specializations.all.map { spec ->
+        SpecItem(spec.id, spec.name, spec.description, specIcons[spec.id] ?: Icons.Default.MedicalServices)
+    }
+    private val _specs = MutableStateFlow(fallback)
+    val specs = _specs.asStateFlow()
+    private val _isLoading = MutableStateFlow(true)
+    val isLoading = _isLoading.asStateFlow()
+
+    init {
+        viewModelScope.launch {
+            when (val result = specializationRepository.getSpecializations()) {
+                is Resource.Success -> _specs.value = result.data.map { spec ->
+                    SpecItem(spec.specializationId, spec.name, spec.description ?: "",
+                        specIcons[spec.specializationId] ?: Icons.Default.MedicalServices)
+                }
+                else -> {}
+            }
+            _isLoading.value = false
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
-    val specs = com.eva.app.util.Specializations.all.map { spec ->
-        SpecItem(spec.id, spec.name, spec.description, specIcons[spec.id] ?: Icons.Default.MedicalServices)
-    }
+    val vm: SpecializationsViewModel = hiltViewModel()
+    val specs     by vm.specs.collectAsState()
+    val isLoading by vm.isLoading.collectAsState()
+
     Scaffold(topBar = {
         TopAppBar(title = { Text("Специализации") },
             navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
@@ -158,25 +187,29 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
                 titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 navigationIconContentColor = MaterialTheme.colorScheme.onPrimary))
     }) { padding ->
-        LazyColumn(modifier = Modifier.padding(padding), contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            items(specs) { s ->
-                Card(modifier = Modifier.fillMaxWidth().clickable { onSpecClick(s.id) },
-                    shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(2.dp)) {
-                    Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = RoundedCornerShape(12.dp),
-                            color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(48.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(s.icon, null, tint = MaterialTheme.colorScheme.secondary)
+        if (isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+        } else {
+            LazyColumn(modifier = Modifier.padding(padding), contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                items(specs) { s ->
+                    Card(modifier = Modifier.fillMaxWidth().clickable { onSpecClick(s.id) },
+                        shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(2.dp)) {
+                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            Surface(shape = RoundedCornerShape(12.dp),
+                                color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(48.dp)) {
+                                Box(contentAlignment = Alignment.Center) {
+                                    Icon(s.icon, null, tint = MaterialTheme.colorScheme.secondary)
+                                }
                             }
+                            Spacer(Modifier.width(12.dp))
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(s.name, fontWeight = FontWeight.SemiBold)
+                                Text(s.desc, style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        Spacer(Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(s.name, fontWeight = FontWeight.SemiBold)
-                            Text(s.desc, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
-                        Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }

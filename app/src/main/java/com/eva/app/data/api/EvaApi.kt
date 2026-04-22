@@ -40,6 +40,9 @@ interface EvaApi {
         @Body request: AddReviewRequest
     ): Response<Map<String, String>>
 
+    @GET("specializations")
+    suspend fun getSpecializations(): Response<List<SpecializationResponse>>
+
     @GET("clinics")
     suspend fun getClinics(): Response<List<ClinicResponse>>
 

@@ -11,7 +11,6 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
@@ -28,7 +27,7 @@ object NetworkModule {
     @Provides
     @Singleton
     fun provideAuthInterceptor(tokenManager: TokenManager): Interceptor = Interceptor { chain ->
-        val token = runBlocking { tokenManager.token.first() }
+        val token = tokenManager.cachedToken
         val request = if (token != null) {
             chain.request().newBuilder()
                 .addHeader("Authorization", "Bearer $token")
@@ -36,7 +35,12 @@ object NetworkModule {
         } else {
             chain.request()
         }
-        chain.proceed(request)
+        val response = chain.proceed(request)
+        if (response.code == 401) {
+            runBlocking { tokenManager.clearAuth() }
+            tokenManager.emitUnauthorized()
+        }
+        response
     }
 
     @Provides

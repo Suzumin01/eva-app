@@ -189,5 +189,11 @@ data class NotificationResponse(
     val createdAt: String
 )
 
+data class SpecializationResponse(
+    val specializationId: Int,
+    val name: String,
+    val description: String?
+)
+
 data class MessageResponse(val message: String)
 data class ApiError(val code: String, val message: String)

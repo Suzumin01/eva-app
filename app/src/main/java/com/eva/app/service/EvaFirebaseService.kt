@@ -83,7 +83,7 @@ class EvaFirebaseService : FirebaseMessagingService() {
             data["type"]?.let { putExtra("notifType", it) }
         }
         val pendingIntent = PendingIntent.getActivity(
-            this, System.currentTimeMillis().toInt(), intent,
+            this, notifId?.hashCode() ?: (title + body).hashCode(), intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
@@ -96,6 +96,6 @@ class EvaFirebaseService : FirebaseMessagingService() {
             .setContentIntent(pendingIntent)
             .build()
 
-        manager.notify(System.currentTimeMillis().toInt(), notification)
+        manager.notify(notifId?.hashCode() ?: (title + body).hashCode(), notification)
     }
 }

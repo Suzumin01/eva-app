@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
             EvaTheme(darkTheme = darkTheme) {
                 EvaApp(
                     startDestination = start,
+                    tokenManager     = tokenManager,
                     pendingNotifId   = pendingNotifId.value,
                     onNotifConsumed  = { pendingNotifId.value = null }
                 )
@@ -136,12 +137,20 @@ data class BottomItem(
 @Composable
 fun EvaApp(
     startDestination: String,
+    tokenManager: TokenManager,
     pendingNotifId: String?  = null,
     onNotifConsumed: () -> Unit = {}
 ) {
     val navController = rememberNavController()
     val currentEntry  by navController.currentBackStackEntryAsState()
     val currentRoute  = currentEntry?.destination?.route
+
+    // Разлогин при истечении JWT — сервер вернул 401, интерсептор вызвал emitUnauthorized
+    LaunchedEffect(Unit) {
+        tokenManager.unauthorizedEvent.collect {
+            navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+        }
+    }
 
     LaunchedEffect(pendingNotifId) {
         val notifId = pendingNotifId ?: return@LaunchedEffect

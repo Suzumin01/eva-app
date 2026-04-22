@@ -6,6 +6,9 @@ import androidx.datastore.preferences.core.*
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -16,6 +19,13 @@ val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "ev
 class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
+    @Volatile var cachedToken: String? = null
+
+    private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
+
+    fun emitUnauthorized() { _unauthorizedEvent.tryEmit(Unit) }
+
     companion object {
         private val TOKEN_KEY        = stringPreferencesKey("jwt_token")
         private val USER_ID_KEY      = stringPreferencesKey("user_id")
@@ -57,6 +67,7 @@ class TokenManager @Inject constructor(
     }
 
     suspend fun saveAuth(token: String, userId: String, fullName: String) {
+        cachedToken = token
         context.dataStore.edit { prefs ->
             val prevUserId = prefs[USER_ID_KEY]
             // Сбрасываем согласие ТОЛЬКО при смене пользователя, не при каждом входе
@@ -109,6 +120,7 @@ class TokenManager @Inject constructor(
     }
 
     suspend fun clearAuth() {
+        cachedToken = null
         context.dataStore.edit { prefs ->
             prefs.remove(TOKEN_KEY)
             prefs.remove(USER_ID_KEY)
