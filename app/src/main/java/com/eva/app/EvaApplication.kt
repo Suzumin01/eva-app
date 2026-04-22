@@ -26,5 +26,14 @@ class EvaApplication : Application() {
                 android.util.Log.e("EvaApplication", "Ошибка чтения токена из DataStore", e)
             }
         }
+        appScope.launch {
+            runCatching {
+                tokenManager.refreshToken.collect { token ->
+                    tokenManager.cachedRefreshToken = token
+                }
+            }.onFailure { e ->
+                android.util.Log.e("EvaApplication", "Ошибка чтения refresh-токена из DataStore", e)
+            }
+        }
     }
 }

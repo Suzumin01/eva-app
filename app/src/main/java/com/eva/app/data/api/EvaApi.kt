@@ -13,6 +13,9 @@ interface EvaApi {
     @POST("auth/login")
     suspend fun login(@Body request: LoginRequest): Response<AuthResponse>
 
+    @POST("auth/refresh")
+    suspend fun refreshToken(@Body request: RefreshRequest): Response<RefreshResponse>
+
     @GET("auth/me")
     suspend fun getMe(): Response<UserProfileResponse>
 

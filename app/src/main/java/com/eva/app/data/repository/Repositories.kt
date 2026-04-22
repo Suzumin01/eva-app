@@ -40,9 +40,10 @@ class AuthRepository @Inject constructor(
         val result = safeApiCall { api.login(LoginRequest(email, password)) }
         if (result is Resource.Success) {
             tokenManager.saveAuth(
-                token    = result.data.token,
-                userId   = result.data.userId,
-                fullName = result.data.fullName
+                token        = result.data.token,
+                refreshToken = result.data.refreshToken,
+                userId       = result.data.userId,
+                fullName     = result.data.fullName
             )
             // После входа (особенно при смене аккаунта) FCM-токен нужно заново
             // привязать к новому userId на сервере — Firebase не вызывает onNewToken
@@ -63,9 +64,10 @@ class AuthRepository @Inject constructor(
             val loginResult = safeApiCall { api.login(LoginRequest(email, password)) }
             if (loginResult is Resource.Success) {
                 tokenManager.saveAuth(
-                    token    = loginResult.data.token,
-                    userId   = loginResult.data.userId,
-                    fullName = loginResult.data.fullName
+                    token        = loginResult.data.token,
+                    refreshToken = loginResult.data.refreshToken,
+                    userId       = loginResult.data.userId,
+                    fullName     = loginResult.data.fullName
                 )
             } else {
                 return Resource.Error("REGISTERED_LOGIN_FAILED")

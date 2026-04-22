@@ -20,6 +20,7 @@ class TokenManager @Inject constructor(
     @ApplicationContext private val context: Context
 ) {
     @Volatile var cachedToken: String? = null
+    @Volatile var cachedRefreshToken: String? = null
 
     private val _unauthorizedEvent = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val unauthorizedEvent: SharedFlow<Unit> = _unauthorizedEvent.asSharedFlow()
@@ -39,7 +40,8 @@ class TokenManager @Inject constructor(
         private val ONBOARDING_DONE  = booleanPreferencesKey("onboarding_done")
         private val DARK_THEME       = booleanPreferencesKey("dark_theme")
         private val FAVORITES_KEY    = stringPreferencesKey("favorite_doctors")
-        private val FCM_TOKEN_KEY    = stringPreferencesKey("fcm_token")
+        private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
+        private val FCM_TOKEN_KEY     = stringPreferencesKey("fcm_token")
         // Health data — хранится локально (нет backend endpoint)
         private val ALLERGIES_KEY    = stringPreferencesKey("health_allergies")
         private val CHRONIC_KEY      = stringPreferencesKey("health_chronic")
@@ -48,6 +50,7 @@ class TokenManager @Inject constructor(
     }
 
     val token:           Flow<String?>  = context.dataStore.data.map { it[TOKEN_KEY] }
+    val refreshToken:    Flow<String?>  = context.dataStore.data.map { it[REFRESH_TOKEN_KEY] }
     val userId:          Flow<String?>  = context.dataStore.data.map { it[USER_ID_KEY] }
     val userName:        Flow<String?>  = context.dataStore.data.map { it[USER_NAME_KEY] }
     val consentMedical:  Flow<Boolean>  = context.dataStore.data.map { it[CONSENT_MEDICAL] == true }
@@ -66,8 +69,9 @@ class TokenManager @Inject constructor(
         it[CONSENT_MEDICAL] == true && it[CONSENT_PRIVACY] == true
     }
 
-    suspend fun saveAuth(token: String, userId: String, fullName: String) {
-        cachedToken = token
+    suspend fun saveAuth(token: String, refreshToken: String, userId: String, fullName: String) {
+        cachedToken        = token
+        cachedRefreshToken = refreshToken
         context.dataStore.edit { prefs ->
             val prevUserId = prefs[USER_ID_KEY]
             // Сбрасываем согласие ТОЛЬКО при смене пользователя, не при каждом входе
@@ -77,9 +81,19 @@ class TokenManager @Inject constructor(
                 prefs.remove(CONSENT_AI)
                 prefs.remove(CONSENT_PRIVACY)
             }
-            prefs[TOKEN_KEY]     = token
-            prefs[USER_ID_KEY]   = userId
-            prefs[USER_NAME_KEY] = fullName
+            prefs[TOKEN_KEY]         = token
+            prefs[REFRESH_TOKEN_KEY] = refreshToken
+            prefs[USER_ID_KEY]       = userId
+            prefs[USER_NAME_KEY]     = fullName
+        }
+    }
+
+    suspend fun saveTokens(accessToken: String, refreshToken: String) {
+        cachedToken        = accessToken
+        cachedRefreshToken = refreshToken
+        context.dataStore.edit { prefs ->
+            prefs[TOKEN_KEY]         = accessToken
+            prefs[REFRESH_TOKEN_KEY] = refreshToken
         }
     }
 
@@ -120,9 +134,11 @@ class TokenManager @Inject constructor(
     }
 
     suspend fun clearAuth() {
-        cachedToken = null
+        cachedToken        = null
+        cachedRefreshToken = null
         context.dataStore.edit { prefs ->
             prefs.remove(TOKEN_KEY)
+            prefs.remove(REFRESH_TOKEN_KEY)
             prefs.remove(USER_ID_KEY)
             prefs.remove(USER_NAME_KEY)
             prefs.remove(CONSENT_MEDICAL)

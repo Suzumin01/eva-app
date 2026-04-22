@@ -2,6 +2,7 @@ package com.eva.app.di
 
 import android.content.Context
 import com.eva.app.BuildConfig
+import com.eva.app.data.api.RefreshRequest
 import com.eva.app.data.local.room.AppDatabase
 import com.eva.app.data.local.room.DoctorCacheDao
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -13,8 +14,12 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.runBlocking
 import okhttp3.Interceptor
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
+import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import okhttp3.logging.HttpLoggingInterceptor
+import org.json.JSONObject
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.util.concurrent.TimeUnit
@@ -35,17 +40,56 @@ object NetworkModule {
         } else {
             chain.request()
         }
-        val response = chain.proceed(request)
-        if (response.code == 401) {
-            runBlocking { tokenManager.clearAuth() }
-            tokenManager.emitUnauthorized()
-        }
-        response
+        chain.proceed(request)
     }
 
     @Provides
     @Singleton
-    fun provideOkHttpClient(authInterceptor: Interceptor): OkHttpClient {
+    fun provideAuthenticator(tokenManager: TokenManager): okhttp3.Authenticator =
+        okhttp3.Authenticator { _, response ->
+            // Не трогаем запросы к /auth/refresh, чтобы не зациклиться
+            if (response.request.url.encodedPath.contains("auth/refresh")) return@Authenticator null
+
+            val refreshToken = tokenManager.cachedRefreshToken ?: run {
+                runBlocking { tokenManager.clearAuth() }
+                tokenManager.emitUnauthorized()
+                return@Authenticator null
+            }
+
+            val body = """{"refreshToken":"$refreshToken"}"""
+                .toRequestBody("application/json".toMediaType())
+            val refreshReq = Request.Builder()
+                .url("${BuildConfig.BASE_URL}auth/refresh")
+                .post(body)
+                .build()
+
+            val refreshResp = runCatching {
+                OkHttpClient().newCall(refreshReq).execute()
+            }.getOrNull()
+
+            if (refreshResp?.isSuccessful == true) {
+                val json         = JSONObject(refreshResp.body?.string() ?: return@Authenticator null)
+                val newToken     = json.optString("token").takeIf { it.isNotBlank() }
+                    ?: return@Authenticator null
+                val newRefresh   = json.optString("refreshToken").takeIf { it.isNotBlank() }
+                    ?: return@Authenticator null
+                runBlocking { tokenManager.saveTokens(newToken, newRefresh) }
+                response.request.newBuilder()
+                    .header("Authorization", "Bearer $newToken")
+                    .build()
+            } else {
+                runBlocking { tokenManager.clearAuth() }
+                tokenManager.emitUnauthorized()
+                null
+            }
+        }
+
+    @Provides
+    @Singleton
+    fun provideOkHttpClient(
+        authInterceptor: Interceptor,
+        authenticator: okhttp3.Authenticator
+    ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
             level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
             else HttpLoggingInterceptor.Level.NONE
@@ -53,6 +97,7 @@ object NetworkModule {
         return OkHttpClient.Builder()
             .addInterceptor(authInterceptor)
             .addInterceptor(logging)
+            .authenticator(authenticator)
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(30, TimeUnit.SECONDS)
             .build()

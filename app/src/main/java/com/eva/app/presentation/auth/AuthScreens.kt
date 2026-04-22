@@ -226,11 +226,13 @@ fun RegisterScreen(
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.registerState.collectAsState()
-    var fullName    by remember { mutableStateOf("") }
-    var email       by remember { mutableStateOf("") }
-    var phone       by remember { mutableStateOf("") }
-    var password    by remember { mutableStateOf("") }
-    var passVisible by remember { mutableStateOf(false) }
+    var fullName        by remember { mutableStateOf("") }
+    var email           by remember { mutableStateOf("") }
+    var phone           by remember { mutableStateOf("") }
+    var password        by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passVisible     by remember { mutableStateOf(false) }
+    val passwordsMatch  = password == confirmPassword || confirmPassword.isEmpty()
 
     LaunchedEffect(state) {
         if (state is AuthState.Success) { viewModel.resetStates(); onRegisterSuccess() }
@@ -296,6 +298,20 @@ fun RegisterScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it },
+                label = { Text("Повторите пароль") },
+                leadingIcon = { Icon(Icons.Default.Lock, null) },
+                visualTransformation = if (passVisible) VisualTransformation.None
+                else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                isError = !passwordsMatch,
+                supportingText = if (!passwordsMatch) {
+                    { Text("Пароли не совпадают", color = MaterialTheme.colorScheme.error) }
+                } else null,
+                singleLine = true, modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp))
 
             if (state is AuthState.Error) {
                 Spacer(Modifier.height(10.dp))
@@ -328,7 +344,8 @@ fun RegisterScreen(
                 enabled  = state !is AuthState.Loading
                         && fullName.isNotBlank()
                         && email.isNotBlank()
-                        && password.length >= 8,
+                        && password.length >= 8
+                        && confirmPassword == password,
                 modifier = Modifier.fillMaxWidth().height(52.dp),
                 shape    = RoundedCornerShape(14.dp)
             ) {

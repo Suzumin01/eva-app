@@ -18,9 +18,19 @@ data class LoginRequest(
 
 data class AuthResponse(
     val token: String,
+    val refreshToken: String,
     val userId: String,
     val fullName: String,
     val role: String
+)
+
+data class RefreshRequest(
+    val refreshToken: String
+)
+
+data class RefreshResponse(
+    val token: String,
+    val refreshToken: String
 )
 
 data class UserProfileResponse(
