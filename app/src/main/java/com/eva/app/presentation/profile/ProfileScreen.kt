@@ -79,8 +79,8 @@ class ProfileViewModel @Inject constructor(
             _photoUploading.value = true
             val file = uriToTempFile(uri, context)
             if (file != null) {
-                when (val r = authRepository.uploadPhoto(file)) {
-                    is Resource.Success -> loadProfile()
+                when (authRepository.uploadPhoto(file)) {
+                    is Resource.Success<*> -> loadProfile()
                     else -> {}
                 }
                 file.delete()
