@@ -232,6 +232,12 @@ class DocumentRepository @Inject constructor(private val api: EvaApi) {
 
     suspend fun deleteDocument(id: String): Resource<Map<String, String>> =
         safeApiCall { api.deleteDocument(id) }
+
+    suspend fun uploadPhoto(file: java.io.File): Resource<AvatarUrlResponse> {
+        val reqFile = file.asRequestBody("image/*".toMediaType())
+        val part    = MultipartBody.Part.createFormData("photo", file.name, reqFile)
+        return safeApiCall { api.uploadPhoto(part) }
+    }
 }
 
 @Singleton

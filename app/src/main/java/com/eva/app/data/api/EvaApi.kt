@@ -22,6 +22,10 @@ interface EvaApi {
     @PATCH("auth/me")
     suspend fun updateProfile(@Body request: UpdateProfileRequest): Response<UserProfileResponse>
 
+    @Multipart
+    @POST("auth/photo")
+    suspend fun uploadPhoto(@Part photo: MultipartBody.Part): Response<AvatarUrlResponse>
+
     @GET("doctors")
     suspend fun getDoctors(
         @Query("specializationId") specializationId: Short? = null,

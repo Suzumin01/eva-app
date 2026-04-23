@@ -1,8 +1,13 @@
 package com.eva.app.presentation.profile
 
+import android.content.Context
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -11,14 +16,20 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.eva.app.BuildConfig
 import com.eva.app.data.api.UserProfileResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
@@ -26,6 +37,8 @@ import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
+import java.io.File
+import java.io.FileOutputStream
 import javax.inject.Inject
 
 @HiltViewModel
@@ -39,6 +52,8 @@ class ProfileViewModel @Inject constructor(
     val isLoading = _isLoading.asStateFlow()
     private val _loggedOut = MutableStateFlow(false)
     val loggedOut = _loggedOut.asStateFlow()
+    private val _photoUploading = MutableStateFlow(false)
+    val photoUploading = _photoUploading.asStateFlow()
 
     val cachedName = tokenManager.userName
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -59,12 +74,36 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun uploadPhoto(uri: Uri, context: Context) {
+        viewModelScope.launch {
+            _photoUploading.value = true
+            val file = uriToTempFile(uri, context)
+            if (file != null) {
+                when (val r = authRepository.uploadPhoto(file)) {
+                    is Resource.Success -> loadProfile()
+                    else -> {}
+                }
+                file.delete()
+            }
+            _photoUploading.value = false
+        }
+    }
+
     fun logout() {
         viewModelScope.launch {
             authRepository.logout()
             _loggedOut.value = true
         }
     }
+
+    private fun uriToTempFile(uri: Uri, context: Context): File? = runCatching {
+        val ext  = context.contentResolver.getType(uri)?.substringAfter("/") ?: "jpg"
+        val temp = File.createTempFile("avatar_", ".$ext", context.cacheDir)
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            FileOutputStream(temp).use { output -> input.copyTo(output) }
+        }
+        temp
+    }.getOrNull()
 }
 
 @Composable
@@ -74,16 +113,25 @@ fun ProfileScreen(
     onOpenSettings: () -> Unit = {},
     viewModel: ProfileViewModel = hiltViewModel()
 ) {
-    val profile    by viewModel.profile.collectAsState()
-    val isLoading  by viewModel.isLoading.collectAsState()
-    val loggedOut  by viewModel.loggedOut.collectAsState()
-    val cachedName by viewModel.cachedName.collectAsState()
+    val profile        by viewModel.profile.collectAsState()
+    val isLoading      by viewModel.isLoading.collectAsState()
+    val loggedOut      by viewModel.loggedOut.collectAsState()
+    val cachedName     by viewModel.cachedName.collectAsState()
+    val photoUploading by viewModel.photoUploading.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val photoPicker = rememberLauncherForActivityResult(
+        ActivityResultContracts.GetContent()
+    ) { uri -> uri?.let { viewModel.uploadPhoto(it, context) } }
 
     LaunchedEffect(loggedOut) { if (loggedOut) onLogout() }
 
-    val displayName = profile?.fullName ?: cachedName
+    val displayName  = profile?.fullName ?: cachedName
     val displayEmail = profile?.email
+    // BASE_URL = "http://host:port/api/v1/" → нужен только хост, avatarUrl уже содержит /api/v1/...
+    val serverRoot   = BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1")
+    val avatarUrl    = profile?.avatarUrl?.let { "$serverRoot$it" }
 
     if (showLogoutDialog) {
         AlertDialog(
@@ -108,12 +156,45 @@ fun ProfileScreen(
     ) {
         Spacer(Modifier.height(16.dp))
 
-        Surface(shape = RoundedCornerShape(28.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(96.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Person, null, modifier = Modifier.size(56.dp),
-                    tint = MaterialTheme.colorScheme.primary)
+        Box(contentAlignment = Alignment.BottomEnd) {
+            Surface(
+                shape  = CircleShape,
+                color  = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(96.dp)
+            ) {
+                if (avatarUrl != null) {
+                    AsyncImage(
+                        model = ImageRequest.Builder(context)
+                            .data(avatarUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = "Аватар",
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                } else {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(Icons.Default.Person, null,
+                            modifier = Modifier.size(56.dp),
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            }
+            SmallFloatingActionButton(
+                onClick = { photoPicker.launch("image/*") },
+                containerColor = MaterialTheme.colorScheme.primary,
+                contentColor   = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier.size(30.dp)
+            ) {
+                if (photoUploading) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary
+                    )
+                } else {
+                    Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
+                }
             }
         }
         Spacer(Modifier.height(12.dp))

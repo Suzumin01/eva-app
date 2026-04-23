@@ -42,11 +42,14 @@ data class UserProfileResponse(
     val isActive: Boolean,
     val consentMedical: Boolean,
     val consentAi: Boolean,
+    val avatarUrl: String? = null,
     val dateOfBirth: String? = null,
     val allergies: String? = null,
     val chronicDiseases: String? = null,
     val insurancePolicy: String? = null
 )
+
+data class AvatarUrlResponse(val avatarUrl: String)
 
 data class UpdateProfileRequest(
     val fullName: String?,

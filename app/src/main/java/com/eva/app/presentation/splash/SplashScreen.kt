@@ -35,15 +35,13 @@ class SplashViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val hasToken       = tokenManager.token.first() != null
-            val onboardingDone = tokenManager.onboardingDone.first()
-            val consentShown   = tokenManager.consentShown.first()
+            val hasToken     = tokenManager.token.first() != null
+            val consentShown = tokenManager.consentShown.first()
 
             _startDest.value = when {
-                !onboardingDone -> Screen.Onboarding.route
-                !hasToken       -> Screen.Login.route
-                !consentShown   -> Screen.Consent.route
-                else            -> Screen.Home.route
+                !hasToken     -> Screen.Onboarding.route
+                !consentShown -> Screen.Consent.route
+                else          -> Screen.Home.route
             }
         }
     }
