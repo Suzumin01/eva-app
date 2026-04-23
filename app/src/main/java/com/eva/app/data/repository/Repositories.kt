@@ -242,8 +242,20 @@ class ClinicRepository @Inject constructor(private val api: EvaApi) {
 
 @Singleton
 class SpecializationRepository @Inject constructor(private val api: EvaApi) {
-    suspend fun getSpecializations(): Resource<List<com.eva.app.data.api.SpecializationResponse>> =
-        safeApiCall { api.getSpecializations() }
+    @Volatile private var cachedSpecs: List<com.eva.app.data.api.SpecializationResponse>? = null
+
+    suspend fun getSpecializations(): Resource<List<com.eva.app.data.api.SpecializationResponse>> {
+        cachedSpecs?.let { return Resource.Success(it) }
+        return safeApiCall { api.getSpecializations() }.also { result ->
+            if (result is Resource.Success) cachedSpecs = result.data
+        }
+    }
+
+    fun findIdByName(name: String): Int? {
+        cachedSpecs?.find { it.name.equals(name, ignoreCase = true) }
+            ?.specializationId?.let { return it }
+        return com.eva.app.util.Specializations.findIdByName(name)
+    }
 }
 
 @Singleton

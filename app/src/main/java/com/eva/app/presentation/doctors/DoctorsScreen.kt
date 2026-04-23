@@ -57,7 +57,7 @@ class DoctorsViewModel @Inject constructor(
     private val _selectedClinicName = MutableStateFlow<String?>(null)
     val selectedClinicName = _selectedClinicName.asStateFlow()
 
-    private val _specializations = MutableStateFlow(com.eva.app.util.Specializations.forFilter)
+    private val _specializations = MutableStateFlow(listOf<Pair<Int?, String>>(null to "Все"))
     val specializations = _specializations.asStateFlow()
 
     private var currentOffset = 0L

@@ -63,6 +63,7 @@ import javax.inject.Inject
 class MainActivity : ComponentActivity() {
     @Inject lateinit var tokenManager: TokenManager
     @Inject lateinit var authRepository: AuthRepository
+    @Inject lateinit var specializationRepository: com.eva.app.data.repository.SpecializationRepository
 
     private val notificationPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -100,7 +101,8 @@ class MainActivity : ComponentActivity() {
                     startDestination = Screen.Splash.route,
                     tokenManager     = tokenManager,
                     pendingNotifId   = pendingNotifId.value,
-                    onNotifConsumed  = { pendingNotifId.value = null }
+                    onNotifConsumed  = { pendingNotifId.value = null },
+                    findSpecId       = specializationRepository::findIdByName
                 )
             }
         }
@@ -132,7 +134,8 @@ fun EvaApp(
     startDestination: String,
     tokenManager: TokenManager,
     pendingNotifId: String?  = null,
-    onNotifConsumed: () -> Unit = {}
+    onNotifConsumed: () -> Unit = {},
+    findSpecId: (String) -> Int? = { com.eva.app.util.Specializations.findIdByName(it) }
 ) {
     val navController = rememberNavController()
     val currentEntry  by navController.currentBackStackEntryAsState()
@@ -377,8 +380,7 @@ fun EvaApp(
                 SymptomsResultScreen(
                     onBack       = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
                     onFindDoctor = { specName ->
-                        // Маппинг названия специализации из AI → id фильтра врачей
-                        val specId = com.eva.app.util.Specializations.findIdByName(specName)
+                        val specId = findSpecId(specName)
                         navController.navigate(Screen.Doctors.createRoute(specId = specId)) {
                             launchSingleTop = true
                         }

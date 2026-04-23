@@ -91,7 +91,7 @@ object NetworkModule {
         authenticator: okhttp3.Authenticator
     ): OkHttpClient {
         val logging = HttpLoggingInterceptor().apply {
-            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.BODY
+            level = if (BuildConfig.DEBUG) HttpLoggingInterceptor.Level.HEADERS
             else HttpLoggingInterceptor.Level.NONE
         }
         return OkHttpClient.Builder()
