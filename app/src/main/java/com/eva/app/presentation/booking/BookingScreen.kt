@@ -221,45 +221,17 @@ fun BookingScreen(
     }
 
     if (showConfirm && selectedSlot != null) {
-        AlertDialog(
-            onDismissRequest = { showConfirm = false },
-            title = { Text(stringResource(R.string.booking_confirm_dialog_title),
-                fontWeight = FontWeight.Bold) },
-            text  = {
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(stringResource(R.string.booking_confirm_doctor, doctor?.fullName ?: ""))
-                    Text(stringResource(R.string.booking_confirm_date,
-                        formatDate(selectedSlot!!.slotDate)))
-                    Text(stringResource(R.string.booking_confirm_time,
-                        formatTime(selectedSlot!!.slotTime)))
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedTextField(
-                        value = notes, onValueChange = { notes = it },
-                        label = { Text(stringResource(R.string.label_note_optional)) },
-                        minLines = 2, modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(10.dp)
-                    )
-                }
+        BookingConfirmDialog(
+            doctorName   = doctor?.fullName ?: "",
+            slot         = selectedSlot!!,
+            notes        = notes,
+            onNotesChange = { notes = it },
+            bookState    = bookState,
+            onConfirm    = {
+                showConfirm = false
+                viewModel.book(selectedSlot!!.scheduleId, notes.ifBlank { null })
             },
-            confirmButton = {
-                Button(
-                    onClick  = {
-                        val slot = selectedSlot ?: return@Button
-                        showConfirm = false
-                        viewModel.book(slot.scheduleId, notes.ifBlank { null })
-                    },
-                    enabled  = bookState !is BookState.Loading
-                ) {
-                    if (bookState is BookState.Loading)
-                        CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    else Text(stringResource(R.string.btn_book))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showConfirm = false }) {
-                    Text(stringResource(R.string.btn_cancel))
-                }
-            }
+            onDismiss    = { showConfirm = false }
         )
     }
 
@@ -377,126 +349,214 @@ fun BookingScreen(
             }
 
             item {
-                Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text(stringResource(R.string.booking_select_date_label),
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleSmall,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState()),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        availableDates.forEach { date ->
-                            val isSel     = selectedDate == date
-                            val dateSlots = slotsByDate[date]?.size
-                            FilterChip(
-                                selected = isSel,
-                                onClick  = { selectedDate = date },
-                                label    = {
-                                    Column(horizontalAlignment = Alignment.CenterHorizontally,
-                                        modifier = Modifier.padding(vertical = 4.dp)) {
-                                        Text(formatDateLabel(date),
-                                            fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                            style = MaterialTheme.typography.labelMedium)
-                                        Text(
-                                            if (dateSlots != null)
-                                                pluralStringResource(R.plurals.booking_slots_count,
-                                                    dateSlots, dateSlots)
-                                            else
-                                                stringResource(R.string.booking_slots_loading),
-                                            style = MaterialTheme.typography.labelSmall,
-                                            color = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer
-                                                    else MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                },
-                                shape = RoundedCornerShape(12.dp)
-                            )
-                        }
-
-                        if (hasMoreDates) {
-                            if (isLoadingMore) {
-                                Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
-                                    CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
-                                }
-                            } else {
-                                OutlinedButton(
-                                    onClick = { viewModel.loadMoreDates() },
-                                    shape   = RoundedCornerShape(12.dp),
-                                    modifier = Modifier.padding(vertical = 4.dp)
-                                ) {
-                                    Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
-                                    Spacer(Modifier.width(4.dp))
-                                    Text(stringResource(R.string.booking_more_dates),
-                                        style = MaterialTheme.typography.labelMedium)
-                                }
-                            }
-                        }
-                    }
-                    Spacer(Modifier.height(16.dp))
-                }
+                DateSelectorRow(
+                    availableDates = availableDates,
+                    selectedDate   = selectedDate,
+                    slotsByDate    = slotsByDate,
+                    hasMoreDates   = hasMoreDates,
+                    isLoadingMore  = isLoadingMore,
+                    onSelectDate   = { selectedDate = it },
+                    onLoadMore     = { viewModel.loadMoreDates() }
+                )
             }
 
             item {
                 selectedDate?.let { date ->
-                    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text(stringResource(R.string.booking_available_time, formatDateLabel(date)),
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.titleSmall,
-                            color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(10.dp))
+                    SlotGrid(
+                        date         = date,
+                        slots        = slotsForDate,
+                        selectedSlot = selectedSlot,
+                        isLoading    = isLoadingSlots && !slotsByDate.containsKey(date),
+                        onSelectSlot = { slot ->
+                            selectedSlot = if (selectedSlot?.scheduleId == slot.scheduleId) null else slot
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
 
-                        if (isLoadingSlots && !slotsByDate.containsKey(date)) {
-                            Box(Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                                contentAlignment = Alignment.Center) {
-                                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
-                            }
-                        } else if (slotsForDate.isEmpty()) {
-                            Text(stringResource(R.string.booking_no_slots_for_date),
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                style = MaterialTheme.typography.bodySmall)
-                        } else {
-                            slotsForDate.chunked(4).forEach { row ->
-                                Row(
-                                    modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                ) {
-                                    row.forEach { slot ->
-                                        val isSel = selectedSlot?.scheduleId == slot.scheduleId
-                                        Box(
-                                            modifier = Modifier
-                                                .weight(1f)
-                                                .clip(RoundedCornerShape(10.dp))
-                                                .background(
-                                                    if (isSel) MaterialTheme.colorScheme.primary
-                                                    else MaterialTheme.colorScheme.surfaceVariant
-                                                )
-                                                .border(
-                                                    if (isSel) 0.dp else 1.dp,
-                                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                                    RoundedCornerShape(10.dp)
-                                                )
-                                                .clickable { selectedSlot = if (isSel) null else slot }
-                                                .padding(vertical = 11.dp),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            Text(
-                                                formatTime(slot.slotTime),
-                                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                                color = if (isSel) Color.White
-                                                        else MaterialTheme.colorScheme.onSurface,
-                                                style = MaterialTheme.typography.bodyMedium
-                                            )
-                                        }
-                                    }
-                                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
-                                }
-                            }
+@Composable
+private fun BookingConfirmDialog(
+    doctorName   : String,
+    slot         : ScheduleResponse,
+    notes        : String,
+    onNotesChange: (String) -> Unit,
+    bookState    : BookState,
+    onConfirm    : () -> Unit,
+    onDismiss    : () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(stringResource(R.string.booking_confirm_dialog_title), fontWeight = FontWeight.Bold) },
+        text  = {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(stringResource(R.string.booking_confirm_doctor, doctorName))
+                Text(stringResource(R.string.booking_confirm_date, formatDate(slot.slotDate)))
+                Text(stringResource(R.string.booking_confirm_time, formatTime(slot.slotTime)))
+                Spacer(Modifier.height(10.dp))
+                OutlinedTextField(
+                    value         = notes,
+                    onValueChange = onNotesChange,
+                    label         = { Text(stringResource(R.string.label_note_optional)) },
+                    minLines      = 2,
+                    modifier      = Modifier.fillMaxWidth(),
+                    shape         = RoundedCornerShape(10.dp)
+                )
+            }
+        },
+        confirmButton = {
+            Button(onClick = onConfirm, enabled = bookState !is BookState.Loading) {
+                if (bookState is BookState.Loading)
+                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                else Text(stringResource(R.string.btn_book))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+        }
+    )
+}
+
+@Composable
+private fun DateSelectorRow(
+    availableDates : List<String>,
+    selectedDate   : String?,
+    slotsByDate    : Map<String, List<ScheduleResponse>>,
+    hasMoreDates   : Boolean,
+    isLoadingMore  : Boolean,
+    onSelectDate   : (String) -> Unit,
+    onLoadMore     : () -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            stringResource(R.string.booking_select_date_label),
+            fontWeight = FontWeight.SemiBold,
+            style      = MaterialTheme.typography.titleSmall,
+            color      = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(10.dp))
+        Row(
+            modifier              = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            availableDates.forEach { date ->
+                val isSel     = selectedDate == date
+                val dateSlots = slotsByDate[date]?.size
+                FilterChip(
+                    selected = isSel,
+                    onClick  = { onSelectDate(date) },
+                    label    = {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            modifier            = Modifier.padding(vertical = 4.dp)
+                        ) {
+                            Text(
+                                formatDateLabel(date),
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                style      = MaterialTheme.typography.labelMedium
+                            )
+                            Text(
+                                if (dateSlots != null)
+                                    pluralStringResource(R.plurals.booking_slots_count, dateSlots, dateSlots)
+                                else
+                                    stringResource(R.string.booking_slots_loading),
+                                style = MaterialTheme.typography.labelSmall,
+                                color = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer
+                                        else MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    shape = RoundedCornerShape(12.dp)
+                )
+            }
+
+            if (hasMoreDates) {
+                if (isLoadingMore) {
+                    Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
+                        CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp)
+                    }
+                } else {
+                    OutlinedButton(
+                        onClick  = onLoadMore,
+                        shape    = RoundedCornerShape(12.dp),
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    ) {
+                        Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.booking_more_dates),
+                            style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
+}
+
+@Composable
+private fun SlotGrid(
+    date        : String,
+    slots       : List<ScheduleResponse>,
+    selectedSlot: ScheduleResponse?,
+    isLoading   : Boolean,
+    onSelectSlot: (ScheduleResponse) -> Unit
+) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+        Text(
+            stringResource(R.string.booking_available_time, formatDateLabel(date)),
+            fontWeight = FontWeight.SemiBold,
+            style      = MaterialTheme.typography.titleSmall,
+            color      = MaterialTheme.colorScheme.primary
+        )
+        Spacer(Modifier.height(10.dp))
+
+        when {
+            isLoading -> Box(
+                Modifier.fillMaxWidth().padding(vertical = 16.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            }
+            slots.isEmpty() -> Text(
+                stringResource(R.string.booking_no_slots_for_date),
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = MaterialTheme.typography.bodySmall
+            )
+            else -> slots.chunked(4).forEach { row ->
+                Row(
+                    modifier              = Modifier.fillMaxWidth().padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    row.forEach { slot ->
+                        val isSel = selectedSlot?.scheduleId == slot.scheduleId
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(
+                                    if (isSel) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceVariant
+                                )
+                                .border(
+                                    if (isSel) 0.dp else 1.dp,
+                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
+                                    RoundedCornerShape(10.dp)
+                                )
+                                .clickable { onSelectSlot(slot) }
+                                .padding(vertical = 11.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                formatTime(slot.slotTime),
+                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
+                                color      = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
+                                style      = MaterialTheme.typography.bodyMedium
+                            )
                         }
                     }
+                    repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }
             }
         }
