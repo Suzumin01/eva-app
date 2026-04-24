@@ -43,9 +43,8 @@ class HomeViewModel @Inject constructor(
     private val tokenManager: TokenManager,
     private val doctorRepository: DoctorRepository
 ) : ViewModel() {
-    val userName: StateFlow<String> = tokenManager.userName
-        .map { it ?: "Пользователь" }
-        .stateIn(viewModelScope, SharingStarted.Eagerly, "Пользователь")
+    val userName: StateFlow<String?> = tokenManager.userName
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _favDoctors = MutableStateFlow<List<DoctorResponse>>(emptyList())
     val favDoctors = _favDoctors.asStateFlow()
@@ -120,7 +119,8 @@ fun HomeScreen(
                         Text(stringResource(R.string.home_welcome),
                             color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium)
-                        Text(userName, color = Color.White,
+                        Text(userName ?: stringResource(R.string.home_fallback_user_name),
+                            color = Color.White,
                             fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     }
 

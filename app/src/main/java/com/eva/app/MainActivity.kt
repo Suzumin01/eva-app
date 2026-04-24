@@ -14,6 +14,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import com.eva.app.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
@@ -159,18 +161,18 @@ fun EvaApp(
     }
 
     val bottomItems = listOf(
-        BottomItem(Screen.Home,         Icons.Default.Home,          "Главная"),
-        BottomItem(Screen.Appointments, Icons.Default.CalendarMonth, "Записи"),
-        BottomItem(Screen.Symptoms,     Icons.Default.Psychology,    "Симптомы"),
-        BottomItem(Screen.Profile,      Icons.Default.Person,        "Профиль")
+        BottomItem(Screen.Home,         Icons.Default.Home,          stringResource(R.string.nav_home)),
+        BottomItem(Screen.Appointments, Icons.Default.CalendarMonth, stringResource(R.string.nav_appointments)),
+        BottomItem(Screen.Symptoms,     Icons.Default.Psychology,    stringResource(R.string.nav_symptoms)),
+        BottomItem(Screen.Profile,      Icons.Default.Person,        stringResource(R.string.nav_profile))
     )
     val bottomRoutes = bottomItems.map { it.screen.route }
     val showBottom   = currentRoute in bottomRoutes
     val topTitles    = mapOf(
-        Screen.Home.route         to "ЕВА",
-        Screen.Appointments.route to "Мои записи",
-        Screen.Symptoms.route     to "AI-анализ",
-        Screen.Profile.route      to "Профиль"
+        Screen.Home.route         to stringResource(R.string.app_name),
+        Screen.Appointments.route to stringResource(R.string.topbar_appointments),
+        Screen.Symptoms.route     to stringResource(R.string.topbar_symptoms),
+        Screen.Profile.route      to stringResource(R.string.nav_profile)
     )
 
     val activity   = LocalContext.current as ComponentActivity
@@ -180,7 +182,7 @@ fun EvaApp(
         topBar = {
             if (showBottom) {
                 TopAppBar(
-                    title   = { Text(topTitles[currentRoute] ?: "ЕВА") },
+                    title   = { Text(topTitles[currentRoute] ?: stringResource(R.string.app_name)) },
                     actions = {
                         IconButton(onClick = { navController.navigate(Screen.Notifications.route) }) {
                             Icon(Icons.Default.Notifications, null,

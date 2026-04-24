@@ -312,6 +312,21 @@
     <string name="edit_profile_chronic_placeholder">Диабет 2 типа, гипертония…</string>
     <string name="btn_save_changes">Сохранить изменения</string>
 
+    <!-- Common fallbacks -->
+    <string name="home_fallback_user_name">Пользователь</string>
+
+    <!-- Bottom Navigation & Top Bar -->
+    <string name="nav_home">Главная</string>
+    <string name="nav_appointments">Записи</string>
+    <string name="nav_symptoms">Симптомы</string>
+    <string name="nav_profile">Профиль</string>
+    <string name="topbar_appointments">Мои записи</string>
+    <string name="topbar_symptoms">AI-анализ</string>
+
+    <!-- FCM Notification Channel -->
+    <string name="fcm_channel_name">Записи и напоминания</string>
+    <string name="fcm_channel_description">Уведомления о записях к врачу</string>
+
     <!-- Plurals -->
     <plurals name="doctors_count">
         <item quantity="one">%d врач</item>

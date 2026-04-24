@@ -30,8 +30,7 @@ class EvaFirebaseService : FirebaseMessagingService() {
     private val serviceScope = CoroutineScope(Dispatchers.IO + serviceJob)
 
     companion object {
-        const val CHANNEL_ID   = "eva_appointments"
-        const val CHANNEL_NAME = "Записи и напоминания"
+        const val CHANNEL_ID = "eva_appointments"
     }
 
     override fun onDestroy() {
@@ -70,9 +69,9 @@ class EvaFirebaseService : FirebaseMessagingService() {
 
         val channel = NotificationChannel(
             CHANNEL_ID,
-            CHANNEL_NAME,
+            getString(R.string.fcm_channel_name),
             NotificationManager.IMPORTANCE_HIGH
-        ).apply { description = "Уведомления о записях к врачу" }
+        ).apply { description = getString(R.string.fcm_channel_description) }
         manager.createNotificationChannel(channel)
 
         val intent = Intent(this, MainActivity::class.java).apply {

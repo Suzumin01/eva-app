@@ -265,9 +265,10 @@ fun DoctorsScreen(
             }
 
             var specExpanded by remember { mutableStateOf(false) }
-            val selectedSpecName = specializations
-                .firstOrNull { it.first == selectedSpec }?.second
-                ?: stringResource(R.string.doctors_filter_all_specs)
+            val allLabel = stringResource(R.string.doctors_filter_all)
+            val selectedSpecName = if (selectedSpec == null) allLabel
+                else specializations.firstOrNull { it.first == selectedSpec }?.second
+                    ?: stringResource(R.string.doctors_filter_all_specs)
             ExposedDropdownMenuBox(
                 expanded  = specExpanded,
                 onExpandedChange = { specExpanded = !specExpanded },
@@ -289,7 +290,7 @@ fun DoctorsScreen(
                 ) {
                     specializations.forEach { (id, name) ->
                         DropdownMenuItem(
-                            text    = { Text(name) },
+                            text    = { Text(if (id == null) allLabel else name) },
                             onClick = {
                                 viewModel.setSpec(id)
                                 specExpanded = false
