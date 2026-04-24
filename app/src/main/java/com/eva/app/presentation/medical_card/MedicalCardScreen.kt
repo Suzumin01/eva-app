@@ -553,6 +553,12 @@ fun DocumentsTab(
     }
 }
 
+private val DocumentResponse.formattedSize: String get() = when {
+    fileSize < 1024        -> "$fileSize Б"
+    fileSize < 1024 * 1024 -> "${fileSize / 1024} КБ"
+    else                   -> "${fileSize / (1024 * 1024)} МБ"
+}
+
 @Composable
 fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
     val (icon, color) = when {
@@ -566,11 +572,7 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
         "xray"         -> stringResource(R.string.document_category_xray)
         else           -> stringResource(R.string.document_category_default)
     }
-    val sizeText = when {
-        doc.fileSize < 1024        -> "${doc.fileSize} Б"
-        doc.fileSize < 1024 * 1024 -> "${doc.fileSize / 1024} КБ"
-        else                       -> "${doc.fileSize / (1024 * 1024)} МБ"
-    }
+    val sizeText = doc.formattedSize
 
     Card(shape = RoundedCornerShape(14.dp), elevation = CardDefaults.cardElevation(2.dp)) {
         Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {

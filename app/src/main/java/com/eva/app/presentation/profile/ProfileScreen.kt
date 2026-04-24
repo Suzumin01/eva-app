@@ -62,6 +62,14 @@ class ProfileViewModel @Inject constructor(
     val cachedName = tokenManager.userName
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
+    val avatarUrl: StateFlow<String?> = _profile
+        .map { p ->
+            p?.avatarUrl?.let { path ->
+                "${BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1")}$path"
+            }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     init { loadProfile() }
 
     fun loadProfile() {
@@ -129,6 +137,7 @@ fun ProfileScreen(
     val cachedName     by viewModel.cachedName.collectAsState()
     val photoUploading by viewModel.photoUploading.collectAsState()
     val photoError     by viewModel.photoError.collectAsState()
+    val avatarUrl      by viewModel.avatarUrl.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
@@ -144,8 +153,6 @@ fun ProfileScreen(
 
     val displayName  = profile?.fullName ?: cachedName
     val displayEmail = profile?.email
-    val serverRoot   = BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1")
-    val avatarUrl    = profile?.avatarUrl?.let { "$serverRoot$it" }
 
     if (showLogoutDialog) {
         AlertDialog(

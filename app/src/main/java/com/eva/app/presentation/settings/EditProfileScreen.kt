@@ -73,21 +73,25 @@ class EditProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
-    private val _profile  = MutableStateFlow<UserProfileResponse?>(null)
+    private val _profile        = MutableStateFlow<UserProfileResponse?>(null)
     val profile = _profile.asStateFlow()
-    private val _isSaving = MutableStateFlow(false)
+    private val _isSaving       = MutableStateFlow(false)
     val isSaving = _isSaving.asStateFlow()
-    private val _error    = MutableStateFlow<String?>(null)
+    private val _error          = MutableStateFlow<String?>(null)
     val error = _error.asStateFlow()
-    private val _saved    = MutableStateFlow(false)
+    private val _saved          = MutableStateFlow(false)
     val saved = _saved.asStateFlow()
+    private val _profileLoading = MutableStateFlow(true)
+    val profileLoading = _profileLoading.asStateFlow()
 
     init {
         viewModelScope.launch {
             when (val r = authRepository.getMe()) {
                 is Resource.Success -> _profile.value = r.data
+                is Resource.Error   -> _error.value = r.message ?: "Ошибка загрузки профиля"
                 else -> {}
             }
+            _profileLoading.value = false
         }
     }
 
@@ -132,10 +136,11 @@ fun EditProfileScreen(
     onSaved: () -> Unit,
     viewModel: EditProfileViewModel = hiltViewModel()
 ) {
-    val profile  by viewModel.profile.collectAsState()
-    val isSaving by viewModel.isSaving.collectAsState()
-    val error    by viewModel.error.collectAsState()
-    val saved    by viewModel.saved.collectAsState()
+    val profile        by viewModel.profile.collectAsState()
+    val isSaving       by viewModel.isSaving.collectAsState()
+    val error          by viewModel.error.collectAsState()
+    val saved          by viewModel.saved.collectAsState()
+    val profileLoading by viewModel.profileLoading.collectAsState()
     val snackbar  = remember { SnackbarHostState() }
     val context   = LocalContext.current
 
@@ -216,7 +221,7 @@ fun EditProfileScreen(
         snackbarHost = { SnackbarHost(snackbar) }
     ) { padding ->
 
-        if (!initialized && profile == null) {
+        if (profileLoading) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }

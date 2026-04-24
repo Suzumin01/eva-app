@@ -94,6 +94,11 @@ class AppointmentsViewModel @Inject constructor(
     }
 
     fun clearMessage() { _message.value = null }
+
+    fun isWithin24Hours(slotDate: String, slotTime: String): Boolean = runCatching {
+        val slotDt = LocalDate.parse(slotDate).atTime(LocalTime.parse(slotTime))
+        ChronoUnit.HOURS.between(java.time.LocalDateTime.now(), slotDt) < 24
+    }.getOrDefault(false)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -151,7 +156,11 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             items(list, key = { it.appointmentId }) { a ->
-                                AppointmentCard(a = a, onCancel = { viewModel.cancel(a.appointmentId) })
+                                AppointmentCard(
+                                    a           = a,
+                                    isWithin24h = viewModel.isWithin24Hours(a.slotDate, a.slotTime),
+                                    onCancel    = { viewModel.cancel(a.appointmentId) }
+                                )
                             }
                         }
                     }
@@ -162,16 +171,9 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
 }
 
 @Composable
-fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
+fun AppointmentCard(a: AppointmentResponse, isWithin24h: Boolean, onCancel: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
-
-    val isWithin24h = remember(a.slotDate, a.slotTime) {
-        runCatching {
-            val slotDt = LocalDate.parse(a.slotDate).atTime(LocalTime.parse(a.slotTime))
-            ChronoUnit.HOURS.between(java.time.LocalDateTime.now(), slotDt) < 24
-        }.getOrDefault(false)
-    }
 
     if (showCancelDialog) {
         AlertDialog(
