@@ -14,6 +14,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -21,6 +22,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.local.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -81,8 +83,9 @@ fun ConsentScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text("Соглашения", color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-            Text("Пожалуйста, ознакомьтесь с условиями перед использованием EVA",
+            Text(stringResource(R.string.consent_screen_title),
+                color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.consent_screen_subtitle),
                 color = Color.White.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.bodyMedium,
                 textAlign = TextAlign.Center,
@@ -92,35 +95,35 @@ fun ConsentScreen(
                 Column(modifier = Modifier.padding(20.dp)) {
 
                     ConsentItem(
-                        icon = Icons.Default.MedicalServices,
-                        title = "Обработка медицинских данных *",
-                        description = "Сбор и обработка медицинских данных для оказания услуг согласно ФЗ № 323-ФЗ.",
-                        checked  = medicalChecked,
+                        icon      = Icons.Default.MedicalServices,
+                        title     = stringResource(R.string.consent_medical_title),
+                        description = stringResource(R.string.consent_medical_desc),
+                        checked   = medicalChecked,
                         onChecked = { medicalChecked = it }
                     )
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
                     ConsentItem(
-                        icon = Icons.Default.Shield,
-                        title = "Политика конфиденциальности *",
-                        description = "Обработка персональных данных согласно ФЗ № 152-ФЗ «О персональных данных».",
-                        checked  = privacyChecked,
+                        icon      = Icons.Default.Shield,
+                        title     = stringResource(R.string.consent_privacy_title),
+                        description = stringResource(R.string.consent_privacy_desc),
+                        checked   = privacyChecked,
                         onChecked = { privacyChecked = it }
                     )
 
                     HorizontalDivider(modifier = Modifier.padding(vertical = 14.dp))
 
                     ConsentItem(
-                        icon = Icons.Default.AutoAwesome,
-                        title = "AI-анализ симптомов (необязательно)",
-                        description = "Обработка описаний симптомов искусственным интеллектом. Можно принять позже при использовании функции.",
-                        checked  = aiChecked,
+                        icon      = Icons.Default.AutoAwesome,
+                        title     = stringResource(R.string.consent_ai_title),
+                        description = stringResource(R.string.consent_ai_desc),
+                        checked   = aiChecked,
                         onChecked = { aiChecked = it }
                     )
 
                     Spacer(Modifier.height(6.dp))
-                    Text("* Обязательные пункты",
+                    Text(stringResource(R.string.consent_required_hint),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
 
@@ -134,7 +137,7 @@ fun ConsentScreen(
                     ) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Продолжить", fontWeight = FontWeight.SemiBold)
+                        Text(stringResource(R.string.btn_continue), fontWeight = FontWeight.SemiBold)
                     }
 
                     Spacer(Modifier.height(10.dp))
@@ -144,12 +147,12 @@ fun ConsentScreen(
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape    = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Пропустить — решу позже")
+                        Text(stringResource(R.string.consent_skip_btn))
                     }
 
                     if (!canProceed) {
                         Spacer(Modifier.height(8.dp))
-                        Text("Для полного доступа необходимо принять обязательные пункты",
+                        Text(stringResource(R.string.consent_required_warning),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
@@ -185,7 +188,8 @@ fun ConsentItem(
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 6.dp)) {
                 Checkbox(checked = checked, onCheckedChange = onChecked)
-                Text("Принимаю", style = MaterialTheme.typography.bodySmall,
+                Text(stringResource(R.string.consent_accept_label),
+                    style = MaterialTheme.typography.bodySmall,
                     modifier = Modifier.padding(start = 4.dp))
             }
         }
@@ -200,11 +204,11 @@ fun MedicalConsentGate(
 ) {
     val accepted by viewModel.consentMedical.collectAsState()
     ConsentGateContent(
-        accepted = accepted,
-        title = "Требуется согласие",
-        text  = "Для записи на приём необходимо принять согласие на обработку медицинских данных.",
+        accepted  = accepted,
+        title     = stringResource(R.string.consent_gate_medical_title),
+        text      = stringResource(R.string.consent_gate_medical_text),
         onRequest = onRequestConsent,
-        content = content
+        content   = content
     )
 }
 
@@ -216,11 +220,11 @@ fun AiConsentGate(
 ) {
     val accepted by viewModel.consentAi.collectAsState()
     ConsentGateContent(
-        accepted = accepted,
-        title = "Требуется согласие на AI-анализ",
-        text  = "Для использования AI-анализа симптомов необходимо принять согласие на обработку данных AI-системой.",
+        accepted  = accepted,
+        title     = stringResource(R.string.consent_gate_ai_title),
+        text      = stringResource(R.string.consent_gate_ai_text),
         onRequest = onRequestConsent,
-        content = content
+        content   = content
     )
 }
 
@@ -251,7 +255,7 @@ private fun ConsentGateContent(
                         shape = RoundedCornerShape(12.dp)) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
-                        Text("Принять согласие")
+                        Text(stringResource(R.string.consent_gate_accept_btn))
                     }
                 }
             }

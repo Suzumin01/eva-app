@@ -9,22 +9,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.local.TokenManager
 import com.eva.app.presentation.navigation.Screen
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.async
-import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 @HiltViewModel
@@ -37,8 +39,6 @@ class SplashViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            // Читаем DataStore параллельно и сразу прогреваем кеш токенов —
-            // без этого OkHttp-интерцептор и Authenticator видят null после перезапуска
             coroutineScope {
                 val tokenDeferred   = async { tokenManager.token.first() }
                 val refreshDeferred = async { tokenManager.refreshToken.first() }
@@ -80,13 +80,13 @@ fun SplashScreen(
     ) {
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
-                text       = "ЕВА",
+                text       = stringResource(R.string.app_name),
                 fontSize   = 52.sp,
                 fontWeight = FontWeight.Bold,
                 color      = Color.White
             )
             Text(
-                text  = "E-Health Virtual Assistant",
+                text  = stringResource(R.string.splash_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = Color.White.copy(alpha = 0.75f)
             )

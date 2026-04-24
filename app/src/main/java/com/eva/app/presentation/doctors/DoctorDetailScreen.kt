@@ -16,11 +16,13 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.DoctorResponse
 import com.eva.app.data.api.ReviewResponse
 import com.eva.app.data.local.TokenManager
@@ -50,11 +52,9 @@ class DoctorDetailViewModel @Inject constructor(
     private val _message   = MutableStateFlow<String?>(null)
     val message = _message.asStateFlow()
 
-    // ID текущего пользователя — для определения "своего" отзыва
     val currentUserId: StateFlow<String?> = tokenManager.userId
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
-    // Избранное
     private val _favIds = MutableStateFlow<Set<Int>>(emptySet())
     val isFavorite: StateFlow<Boolean> = combine(_favIds, _doctor) { ids, doc ->
         doc != null && doc.doctorId in ids
@@ -90,7 +90,6 @@ class DoctorDetailViewModel @Inject constructor(
         when (val r = doctorRepository.getDoctorReviews(doctorId)) {
             is Resource.Success -> {
                 val uid = tokenManager.userId.first()
-                // Свой отзыв — всегда первым
                 _reviews.value = r.data.sortedWith(compareByDescending { it.userId == uid })
             }
             else -> {}
@@ -157,19 +156,17 @@ fun DoctorDetailScreen(
     val currentUserId by viewModel.currentUserId.collectAsState()
     val snackbar       = remember { SnackbarHostState() }
 
-    // Диалоги
-    var showAddReview    by remember { mutableStateOf(false) }
-    var editingReview    by remember { mutableStateOf<ReviewResponse?>(null) }
-    var deletingReview   by remember { mutableStateOf<ReviewResponse?>(null) }
+    var showAddReview  by remember { mutableStateOf(false) }
+    var editingReview  by remember { mutableStateOf<ReviewResponse?>(null) }
+    var deletingReview by remember { mutableStateOf<ReviewResponse?>(null) }
 
     LaunchedEffect(doctorId) { viewModel.load(doctorId) }
-    LaunchedEffect(error)   { error?.let   { snackbar.showSnackbar(it); viewModel.clearError() } }
-    LaunchedEffect(message) { message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() } }
+    LaunchedEffect(error)    { error?.let   { snackbar.showSnackbar(it); viewModel.clearError() } }
+    LaunchedEffect(message)  { message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() } }
 
-    // Диалог добавления
     if (showAddReview) {
         ReviewDialog(
-            title     = "Оставить отзыв",
+            title     = stringResource(R.string.doctor_add_review_btn),
             onDismiss = { showAddReview = false },
             onSubmit  = { rating, comment ->
                 showAddReview = false
@@ -177,10 +174,9 @@ fun DoctorDetailScreen(
             }
         )
     }
-    // Диалог редактирования
     editingReview?.let { review ->
         ReviewDialog(
-            title          = "Редактировать отзыв",
+            title          = stringResource(R.string.doctor_edit_review_title),
             initialRating  = review.rating,
             initialComment = review.comment ?: "",
             onDismiss      = { editingReview = null },
@@ -190,19 +186,22 @@ fun DoctorDetailScreen(
             }
         )
     }
-    // Диалог удаления
     deletingReview?.let { review ->
         AlertDialog(
             onDismissRequest = { deletingReview = null },
-            title  = { Text("Удалить отзыв?") },
-            text   = { Text("Отзыв будет удалён, и вы снова сможете оставить новый.") },
+            title  = { Text(stringResource(R.string.doctor_delete_review_title)) },
+            text   = { Text(stringResource(R.string.doctor_delete_review_text)) },
             confirmButton = {
                 Button(
                     onClick = { deletingReview = null; viewModel.deleteReview(doctorId, review.reviewId) },
                     colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
-                ) { Text("Удалить") }
+                ) { Text(stringResource(R.string.btn_delete)) }
             },
-            dismissButton = { TextButton(onClick = { deletingReview = null }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = { deletingReview = null }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
         )
     }
 
@@ -218,7 +217,7 @@ fun DoctorDetailScreen(
                     IconButton(onClick = { viewModel.toggleFavorite(doctorId) }) {
                         Icon(
                             if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = "Избранное",
+                            contentDescription = stringResource(R.string.doctor_favorites_cd),
                             tint = if (isFavorite) Color(0xFFE53935)
                             else MaterialTheme.colorScheme.onPrimary
                         )
@@ -243,7 +242,7 @@ fun DoctorDetailScreen(
                                 Icon(Icons.Default.Star, null,
                                     tint = Color(0xFFF57F17), modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("Оставить отзыв")
+                                Text(stringResource(R.string.doctor_add_review_btn))
                             }
                         }
                         Button(
@@ -253,7 +252,7 @@ fun DoctorDetailScreen(
                         ) {
                             Icon(Icons.Default.CalendarMonth, null)
                             Spacer(Modifier.width(8.dp))
-                            Text("Записаться на приём", fontWeight = FontWeight.SemiBold)
+                            Text(stringResource(R.string.doctor_book_btn), fontWeight = FontWeight.SemiBold)
                         }
                     }
                 }
@@ -268,7 +267,6 @@ fun DoctorDetailScreen(
         }
         doctor?.let { doc ->
             LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 16.dp)) {
-                // Шапка
                 item {
                     Box(Modifier.fillMaxWidth().height(200.dp)
                         .background(Brush.verticalGradient(listOf(Color(0xFF1565C0), Color(0xFF42A5F5))))) {
@@ -292,7 +290,6 @@ fun DoctorDetailScreen(
                         }
                     }
                 }
-                // Статистика
                 item {
                     Card(Modifier.fillMaxWidth().padding(16.dp),
                         shape = RoundedCornerShape(16.dp),
@@ -300,17 +297,22 @@ fun DoctorDetailScreen(
                         Row(Modifier.padding(16.dp).fillMaxWidth(),
                             horizontalArrangement = Arrangement.SpaceAround) {
                             StatBubble(Icons.Default.MedicalServices,
-                                "${doc.experienceYears ?: "—"}", "лет опыта", Color(0xFF1565C0))
+                                "${doc.experienceYears ?: "—"}",
+                                stringResource(R.string.doctor_stat_experience),
+                                Color(0xFF1565C0))
                             StatBubble(Icons.Default.Star,
-                                doc.rating ?: "—", "рейтинг", Color(0xFFF57F17))
+                                doc.rating ?: "—",
+                                stringResource(R.string.doctor_stat_rating),
+                                Color(0xFFF57F17))
                             StatBubble(Icons.Default.RateReview,
-                                "${doc.reviewsCount}", "отзывов", Color(0xFF2E7D32))
+                                "${doc.reviewsCount}",
+                                stringResource(R.string.doctor_stat_reviews),
+                                Color(0xFF2E7D32))
                         }
                     }
                 }
-                // Клиника
                 item {
-                    InfoSection("Клиника") {
+                    InfoSection(stringResource(R.string.label_clinic)) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocationOn, null,
                                 tint = MaterialTheme.colorScheme.primary,
@@ -324,20 +326,19 @@ fun DoctorDetailScreen(
                         }
                     }
                 }
-                // Биография
                 if (!doc.bio.isNullOrBlank()) {
                     item {
-                        InfoSection("О враче") {
+                        InfoSection(stringResource(R.string.doctor_about_section)) {
                             Text(doc.bio, style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
                         }
                     }
                 }
-                // Отзывы
                 if (reviews.isNotEmpty()) {
                     item {
                         Spacer(Modifier.height(8.dp))
-                        Text("Отзывы (${reviews.size})", fontWeight = FontWeight.Bold,
+                        Text(stringResource(R.string.doctor_reviews_count, reviews.size),
+                            fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 16.dp),
                             style = MaterialTheme.typography.titleSmall)
                         Spacer(Modifier.height(8.dp))
@@ -384,7 +385,8 @@ fun ReviewCard(
                         if (isOwn) {
                             Surface(shape = RoundedCornerShape(4.dp),
                                 color = MaterialTheme.colorScheme.primary) {
-                                Text("Вы", style = MaterialTheme.typography.labelSmall,
+                                Text(stringResource(R.string.doctor_review_yours),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onPrimary,
                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
                             }
@@ -399,7 +401,6 @@ fun ReviewCard(
                         }
                     }
                 }
-                // Кнопки редактирования/удаления только для своего отзыва
                 if (isOwn) {
                     Row {
                         IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
@@ -435,12 +436,21 @@ fun ReviewDialog(
     var rating  by remember { mutableStateOf(initialRating) }
     var comment by remember { mutableStateOf(initialComment) }
 
+    val ratingLabel = when (rating) {
+        1    -> stringResource(R.string.review_rating_1)
+        2    -> stringResource(R.string.review_rating_2)
+        3    -> stringResource(R.string.review_rating_3)
+        4    -> stringResource(R.string.review_rating_4)
+        else -> stringResource(R.string.review_rating_5)
+    }
+
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(title) },
         text  = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text("Ваша оценка:", style = MaterialTheme.typography.bodyMedium)
+                Text(stringResource(R.string.review_your_rating),
+                    style = MaterialTheme.typography.bodyMedium)
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
                     (1..5).forEach { i ->
                         IconButton(onClick = { rating = i }, modifier = Modifier.size(40.dp)) {
@@ -451,14 +461,12 @@ fun ReviewDialog(
                         }
                     }
                 }
-                Text(when (rating) {
-                    1 -> "Очень плохо"; 2 -> "Плохо"; 3 -> "Удовлетворительно"
-                    4 -> "Хорошо"; else -> "Отлично"
-                }, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
+                Text(ratingLabel,
+                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
                 OutlinedTextField(
                     value         = comment,
                     onValueChange = { comment = it },
-                    label         = { Text("Комментарий (необязательно)") },
+                    label         = { Text(stringResource(R.string.review_comment_label)) },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
                     minLines = 2, maxLines = 5
@@ -466,9 +474,13 @@ fun ReviewDialog(
             }
         },
         confirmButton = {
-            Button(onClick = { onSubmit(rating, comment) }) { Text("Сохранить") }
+            Button(onClick = { onSubmit(rating, comment) }) {
+                Text(stringResource(R.string.btn_save))
+            }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+        }
     )
 }
 

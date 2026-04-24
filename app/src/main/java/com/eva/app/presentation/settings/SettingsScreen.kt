@@ -13,12 +13,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.local.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,13 +57,13 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Настройки") },
+                title = { Text(stringResource(R.string.settings_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor             = MaterialTheme.colorScheme.primary,
+                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         }
@@ -72,38 +73,37 @@ fun SettingsScreen(
                 .verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-
-            SettingsSection(title = "Личные данные") {
+            SettingsSection(title = stringResource(R.string.settings_section_personal)) {
                 SettingsNavRow(
-                    icon  = Icons.Default.Person,
-                    label = "Редактировать профиль",
-                    subtitle = "Имя, телефон, дата рождения, здоровье",
-                    onClick = onEditProfile
+                    icon     = Icons.Default.Person,
+                    label    = stringResource(R.string.settings_edit_profile),
+                    subtitle = stringResource(R.string.settings_edit_profile_sub),
+                    onClick  = onEditProfile
                 )
             }
 
-            SettingsSection(title = "Конфиденциальность") {
+            SettingsSection(title = stringResource(R.string.settings_section_privacy)) {
                 ConsentSettingsRow(Icons.Default.MedicalServices,
-                    "Обработка медицинских данных", consentMedical)
+                    stringResource(R.string.settings_consent_medical), consentMedical)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 ConsentSettingsRow(Icons.Default.Shield,
-                    "Политика конфиденциальности", consentPrivacy)
+                    stringResource(R.string.settings_consent_privacy), consentPrivacy)
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                 ConsentSettingsRow(Icons.Default.AutoAwesome,
-                    "AI-анализ симптомов", consentAi)
+                    stringResource(R.string.settings_consent_ai), consentAi)
                 Spacer(Modifier.height(4.dp))
                 OutlinedButton(
-                    onClick = onEditConsents,
+                    onClick  = onEditConsents,
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(10.dp)
+                    shape    = RoundedCornerShape(10.dp)
                 ) {
                     Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text("Изменить согласия")
+                    Text(stringResource(R.string.settings_change_consents))
                 }
             }
 
-            SettingsSection(title = "Внешний вид") {
+            SettingsSection(title = stringResource(R.string.settings_section_appearance)) {
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -122,26 +122,29 @@ fun SettingsScreen(
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("Тёмная тема", fontWeight = FontWeight.Medium,
+                            Text(stringResource(R.string.settings_dark_theme),
+                                fontWeight = FontWeight.Medium,
                                 style = MaterialTheme.typography.bodyMedium)
-                            Text(if (darkTheme) "Включена" else "Выключена",
+                            Text(
+                                if (darkTheme) stringResource(R.string.settings_dark_theme_on)
+                                else stringResource(R.string.settings_dark_theme_off),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
-                    Switch(
-                        checked = darkTheme,
-                        onCheckedChange = { viewModel.setDarkTheme(it) }
-                    )
+                    Switch(checked = darkTheme, onCheckedChange = { viewModel.setDarkTheme(it) })
                 }
             }
 
-            SettingsSection(title = "О приложении") {
-                SettingsInfoRow(Icons.Default.Info,      "Версия",    "1.0.0")
+            SettingsSection(title = stringResource(R.string.settings_section_about)) {
+                SettingsInfoRow(Icons.Default.Info,
+                    stringResource(R.string.settings_about_version), "1.0.0")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                SettingsInfoRow(Icons.Default.Code,      "Разработчик", "ЕВА Team")
+                SettingsInfoRow(Icons.Default.Code,
+                    stringResource(R.string.settings_about_developer), "ЕВА Team")
                 HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                SettingsInfoRow(Icons.Default.Description,"Лицензия",  "MIT")
+                SettingsInfoRow(Icons.Default.Description,
+                    stringResource(R.string.settings_about_license), "MIT")
             }
         }
     }

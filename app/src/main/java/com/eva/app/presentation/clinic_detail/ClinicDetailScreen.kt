@@ -17,9 +17,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
+import com.eva.app.R
 import com.eva.app.data.api.ClinicResponse
 
 @SuppressLint("SetJavaScriptEnabled")
@@ -31,7 +33,6 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
     val lat = clinic.latitude?.toDoubleOrNull()
     val lon = clinic.longitude?.toDoubleOrNull()
 
-    // URL для встроенного превью Яндекс Карт
     val mapUrl = remember(clinic.latitude, clinic.longitude) {
         val lat = clinic.latitude
         val lon = clinic.longitude
@@ -68,8 +69,8 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor             = MaterialTheme.colorScheme.primary,
+                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         }
@@ -81,38 +82,31 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                 .verticalScroll(rememberScrollState())
         ) {
             Card(
-                modifier  = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp)
-                    .height(220.dp),
+                modifier  = Modifier.fillMaxWidth().padding(16.dp).height(220.dp),
                 shape     = RoundedCornerShape(18.dp),
                 elevation = CardDefaults.cardElevation(4.dp)
             ) {
                 Box(Modifier.fillMaxSize()) {
                     if (mapUrl != null) {
-                        // Статичная карта через Яндекс Static Maps API
-                        // update вызывается при каждом изменении mapUrl (в т.ч. при смене темы)
                         AndroidView(
                             factory = { ctx ->
                                 WebView(ctx).apply {
                                     webViewClient = WebViewClient()
-                                    settings.javaScriptEnabled = false
+                                    settings.javaScriptEnabled    = false
                                     settings.loadWithOverviewMode = true
-                                    settings.useWideViewPort     = true
-                                    settings.builtInZoomControls = false
-                                    settings.displayZoomControls = false
+                                    settings.useWideViewPort      = true
+                                    settings.builtInZoomControls  = false
+                                    settings.displayZoomControls  = false
                                 }
                             },
-                            update = { webView -> webView.loadUrl(mapUrl) },
+                            update   = { webView -> webView.loadUrl(mapUrl) },
                             modifier = Modifier.fillMaxSize()
                         )
                     } else {
-                        // Нет координат — красивая заглушка
-                        Box(Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center) {
+                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                                 Icon(Icons.Default.LocationOn, null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint     = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(48.dp))
                                 Spacer(Modifier.height(8.dp))
                                 Text(clinic.address,
@@ -122,36 +116,32 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                         }
                     }
 
-                    // Кнопка "Открыть в Яндекс Картах" поверх карты
                     Button(
-                        onClick = { openInYandex() },
-                        modifier = Modifier
-                            .align(Alignment.BottomEnd)
-                            .padding(12.dp),
-                        shape  = RoundedCornerShape(12.dp),
-                        colors = ButtonDefaults.buttonColors(
+                        onClick  = { openInYandex() },
+                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
+                        shape    = RoundedCornerShape(12.dp),
+                        colors   = ButtonDefaults.buttonColors(
                             containerColor = MaterialTheme.colorScheme.primary)
                     ) {
                         Icon(Icons.Default.Map, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Яндекс Карты", style = MaterialTheme.typography.labelMedium)
+                        Text(stringResource(R.string.clinic_detail_yandex_maps_btn),
+                            style = MaterialTheme.typography.labelMedium)
                     }
                 }
             }
 
             Card(
-                modifier  = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 6.dp),
-                shape     = RoundedCornerShape(16.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
+                shape    = RoundedCornerShape(16.dp)
             ) {
                 Column(
                     modifier = Modifier.padding(16.dp),
                     verticalArrangement = Arrangement.spacedBy(14.dp)
                 ) {
-                    Text("Контактная информация",
+                    Text(stringResource(R.string.clinic_detail_contact_info),
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.primary)
+                        color      = MaterialTheme.colorScheme.primary)
                     HorizontalDivider()
 
                     Row(verticalAlignment = Alignment.Top) {
@@ -160,19 +150,19 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                             modifier = Modifier.size(36.dp)) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.LocationOn, null,
-                                    tint = MaterialTheme.colorScheme.primary,
+                                    tint     = MaterialTheme.colorScheme.primary,
                                     modifier = Modifier.size(18.dp))
                             }
                         }
                         Spacer(Modifier.width(12.dp))
                         Column {
-                            Text("Адрес", style = MaterialTheme.typography.labelSmall,
+                            Text(stringResource(R.string.label_address),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Text(clinic.address, fontWeight = FontWeight.Medium)
                         }
                     }
 
-                    // Телефон — кликабельный
                     clinic.phone?.let { phone ->
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -185,13 +175,14 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                                     modifier = Modifier.size(36.dp)) {
                                     Box(contentAlignment = Alignment.Center) {
                                         Icon(Icons.Default.Phone, null,
-                                            tint = MaterialTheme.colorScheme.secondary,
+                                            tint     = MaterialTheme.colorScheme.secondary,
                                             modifier = Modifier.size(18.dp))
                                     }
                                 }
                                 Spacer(Modifier.width(12.dp))
                                 Column {
-                                    Text("Телефон", style = MaterialTheme.typography.labelSmall,
+                                    Text(stringResource(R.string.clinic_detail_phone_label),
+                                        style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                                     Text(phone, fontWeight = FontWeight.Medium)
                                 }
@@ -202,7 +193,6 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
                             }
                         }
                     }
-
                 }
             }
 
@@ -210,16 +200,13 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
 
             Button(
                 onClick  = { onFindDoctors(clinic.clinicId, clinic.clinicName) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp)
-                    .height(52.dp),
-                shape  = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp),
+                shape    = RoundedCornerShape(14.dp)
             ) {
                 Icon(Icons.Default.PersonSearch, null, modifier = Modifier.size(20.dp))
                 Spacer(Modifier.width(8.dp))
-                Text("Найти врачей в этой клинике",
-                    style = MaterialTheme.typography.bodyMedium,
+                Text(stringResource(R.string.clinic_detail_find_doctors_btn),
+                    style      = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.SemiBold)
             }
 

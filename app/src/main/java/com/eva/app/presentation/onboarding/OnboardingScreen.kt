@@ -17,6 +17,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -24,6 +25,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.local.TokenManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
@@ -54,32 +56,30 @@ fun OnboardingScreen(
 ) {
     val pages = listOf(
         OnboardingPage(
-            icon = Icons.Default.HealthAndSafety,
-            title = "Добро пожаловать в ЕВА" +
-                    "" +
-                    "",
-            description = "Ваш персональный медицинский помощник.\nЗаписывайтесь к врачам, отслеживайте здоровье\nи получайте AI-консультации.",
+            icon          = Icons.Default.HealthAndSafety,
+            title         = stringResource(R.string.onboarding_page1_title),
+            description   = stringResource(R.string.onboarding_page1_desc),
             gradientStart = Color(0xFF0D47A1),
             gradientEnd   = Color(0xFF1976D2)
         ),
         OnboardingPage(
-            icon = Icons.Default.CalendarMonth,
-            title = "Запись к врачу онлайн",
-            description = "Выбирайте специалиста, удобную дату и время.\nВся история приёмов хранится в вашей\nмедицинской карте.",
+            icon          = Icons.Default.CalendarMonth,
+            title         = stringResource(R.string.onboarding_page2_title),
+            description   = stringResource(R.string.onboarding_page2_desc),
             gradientStart = Color(0xFF006064),
             gradientEnd   = Color(0xFF00838F)
         ),
         OnboardingPage(
-            icon = Icons.Default.Psychology,
-            title = "AI-анализ симптомов",
-            description = "Опишите симптомы — искусственный интеллект\nоценит состояние и порекомендует,\nк какому врачу обратиться.",
+            icon          = Icons.Default.Psychology,
+            title         = stringResource(R.string.onboarding_page3_title),
+            description   = stringResource(R.string.onboarding_page3_desc),
             gradientStart = Color(0xFF1B5E20),
             gradientEnd   = Color(0xFF2E7D32)
         ),
         OnboardingPage(
-            icon = Icons.Default.Notifications,
-            title = "Будьте в курсе",
-            description = "Получайте напоминания о предстоящих приёмах,\nуведомления о новых сообщениях\nи результатах анализов.",
+            icon          = Icons.Default.Notifications,
+            title         = stringResource(R.string.onboarding_page4_title),
+            description   = stringResource(R.string.onboarding_page4_desc),
             gradientStart = Color(0xFF4A148C),
             gradientEnd   = Color(0xFF7B1FA2)
         )
@@ -102,8 +102,8 @@ fun OnboardingScreen(
                     modifier = Modifier.padding(40.dp)
                 ) {
                     Surface(
-                        shape = RoundedCornerShape(32.dp),
-                        color = Color.White.copy(alpha = 0.2f),
+                        shape    = RoundedCornerShape(32.dp),
+                        color    = Color.White.copy(alpha = 0.2f),
                         modifier = Modifier.size(120.dp)
                     ) {
                         Box(contentAlignment = Alignment.Center) {
@@ -128,7 +128,7 @@ fun OnboardingScreen(
         ) {
             pages.indices.forEach { idx ->
                 val isSelected = pagerState.currentPage == idx
-                val width by animateColorAsState(
+                val dotColor by animateColorAsState(
                     targetValue = if (isSelected) Color.White else Color.White.copy(alpha = 0.4f),
                     label = "dot"
                 )
@@ -136,7 +136,7 @@ fun OnboardingScreen(
                     modifier = Modifier
                         .size(if (isSelected) 24.dp else 8.dp, 8.dp)
                         .clip(CircleShape)
-                        .background(width)
+                        .background(dotColor)
                 )
             }
         }
@@ -152,7 +152,7 @@ fun OnboardingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     TextButton(onClick = { viewModel.finish(onDone) }) {
-                        Text("Пропустить", color = Color.White.copy(alpha = 0.7f))
+                        Text(stringResource(R.string.btn_skip), color = Color.White.copy(alpha = 0.7f))
                     }
                     Button(
                         onClick = {
@@ -161,28 +161,29 @@ fun OnboardingScreen(
                             }
                         },
                         colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                        shape = RoundedCornerShape(14.dp)
+                        shape  = RoundedCornerShape(14.dp)
                     ) {
-                        Text("Далее",
+                        Text(stringResource(R.string.btn_next),
                             color = pages[pagerState.currentPage].gradientStart,
                             fontWeight = FontWeight.Bold)
                         Spacer(Modifier.width(4.dp))
                         Icon(Icons.Default.ArrowForward, null,
-                            tint = pages[pagerState.currentPage].gradientStart,
+                            tint     = pages[pagerState.currentPage].gradientStart,
                             modifier = Modifier.size(18.dp))
                     }
                 }
             } else {
                 Button(
-                    onClick = { viewModel.finish(onDone) },
+                    onClick  = { viewModel.finish(onDone) },
                     modifier = Modifier.fillMaxWidth().height(56.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = Color.White),
-                    shape = RoundedCornerShape(16.dp)
+                    colors   = ButtonDefaults.buttonColors(containerColor = Color.White),
+                    shape    = RoundedCornerShape(16.dp)
                 ) {
                     Icon(Icons.Default.CheckCircle, null,
                         tint = pages.last().gradientStart)
                     Spacer(Modifier.width(8.dp))
-                    Text("Начать", color = pages.last().gradientStart,
+                    Text(stringResource(R.string.btn_start),
+                        color = pages.last().gradientStart,
                         fontWeight = FontWeight.Bold, fontSize = 16.sp)
                 }
             }

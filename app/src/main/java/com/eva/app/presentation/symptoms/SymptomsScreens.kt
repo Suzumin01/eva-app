@@ -15,24 +15,26 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.AnalyzeSymptomsResponse
 import com.eva.app.data.api.SymptomsHistoryResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.SymptomsRepository
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
+import com.eva.app.util.formatDate
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import com.eva.app.util.formatDate
 import javax.inject.Inject
 
 @HiltViewModel
@@ -102,38 +104,41 @@ fun SymptomsScreen(
     }
 
     selected?.let { item ->
+        val urgencyColor = when (item.aiResponse?.urgency) {
+            "emergency", "urgent" -> MaterialTheme.colorScheme.error
+            "normal"              -> MaterialTheme.colorScheme.primary
+            else                  -> Color(0xFF2E7D32)
+        }
+        val urgencyText = when (item.aiResponse?.urgency) {
+            "emergency" -> stringResource(R.string.urgency_emergency)
+            "urgent"    -> stringResource(R.string.urgency_urgent)
+            "normal"    -> stringResource(R.string.urgency_normal)
+            else        -> stringResource(R.string.urgency_low)
+        }
         AlertDialog(
             onDismissRequest = { selected = null },
-            title = { Text("Результат анализа", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.symptoms_result_dialog_title), fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text("Симптомы:", fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.symptoms_dialog_symptoms_label),
+                        fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.labelLarge,
                         color = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(4.dp))
                     Text(item.symptomsText, style = MaterialTheme.typography.bodySmall)
                     item.aiResponse?.let { ai ->
                         Spacer(Modifier.height(12.dp))
-                        val urgencyColor = when (ai.urgency) {
-                            "emergency", "urgent" -> MaterialTheme.colorScheme.error
-                            "normal"              -> MaterialTheme.colorScheme.primary
-                            else                  -> Color(0xFF2E7D32)
-                        }
-                        val urgencyText = when (ai.urgency) {
-                            "emergency" -> "🚨 Экстренно"
-                            "urgent"    -> "⚠️ Срочно"
-                            "normal"    -> "📋 Норма"
-                            else        -> "✅ Несрочно"
-                        }
                         Text(urgencyText, color = urgencyColor, fontWeight = FontWeight.Bold)
                         Spacer(Modifier.height(10.dp))
-                        Text("Оценка:", fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.medical_card_ai_assessment),
+                            fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
                         Text(ai.diagnosis, style = MaterialTheme.typography.bodySmall)
                         Spacer(Modifier.height(10.dp))
-                        Text("Рекомендации:", fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.medical_card_ai_recommendations),
+                            fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
@@ -146,7 +151,9 @@ fun SymptomsScreen(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { selected = null }) { Text("Закрыть") }
+                TextButton(onClick = { selected = null }) {
+                    Text(stringResource(R.string.btn_close))
+                }
             }
         )
     }
@@ -162,9 +169,9 @@ fun SymptomsScreen(
                     Icon(Icons.Default.Psychology, null, modifier = Modifier.size(72.dp),
                         tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
-                    Text("Нет анализов", fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.symptoms_empty_title), fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.titleMedium)
-                    Text("Нажмите «Новый запрос» чтобы описать симптомы",
+                    Text(stringResource(R.string.symptoms_empty_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp))
@@ -183,7 +190,7 @@ fun SymptomsScreen(
         ExtendedFloatingActionButton(
             onClick        = onNewRequest,
             icon           = { Icon(Icons.Default.Add, null) },
-            text           = { Text("Новый запрос") },
+            text           = { Text(stringResource(R.string.symptoms_new_request_btn)) },
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor   = Color.White,
             modifier       = Modifier.align(Alignment.BottomEnd).padding(20.dp)
@@ -200,10 +207,10 @@ fun HistoryItem(item: SymptomsHistoryResponse, onClick: () -> Unit) {
         else                  -> Color(0xFF2E7D32)
     }
     val urgencyLabel = when (urgency) {
-        "emergency" -> "🚨 Срочно"
-        "urgent"    -> "⚠️ Срочно"
-        "normal"    -> "📋 Норма"
-        "low"       -> "✅ Несрочно"
+        "emergency" -> stringResource(R.string.urgency_emergency)
+        "urgent"    -> stringResource(R.string.urgency_urgent)
+        "normal"    -> stringResource(R.string.urgency_normal)
+        "low"       -> stringResource(R.string.urgency_low)
         else        -> null
     }
 
@@ -226,7 +233,7 @@ fun HistoryItem(item: SymptomsHistoryResponse, onClick: () -> Unit) {
             Row(modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
-                Text("AI-анализ", fontWeight = FontWeight.SemiBold,
+                Text(stringResource(R.string.symptoms_item_title), fontWeight = FontWeight.SemiBold,
                     style = MaterialTheme.typography.bodyMedium)
                 Text(formatDate(item.createdAt), style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -262,13 +269,13 @@ fun SymptomsFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Описание симптомов") },
+                title = { Text(stringResource(R.string.symptoms_form_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor             = MaterialTheme.colorScheme.primary,
+                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         }
@@ -287,7 +294,7 @@ fun SymptomsFormScreen(
                     Icon(Icons.Default.AutoAwesome, null,
                         tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
                     Spacer(Modifier.width(10.dp))
-                    Text("AI проанализирует симптомы и даст предварительную оценку. Это не заменяет консультацию врача.",
+                    Text(stringResource(R.string.symptoms_form_disclaimer),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onPrimaryContainer)
                 }
@@ -295,17 +302,18 @@ fun SymptomsFormScreen(
 
             Spacer(Modifier.height(20.dp))
 
+            val minCharsHint = stringResource(R.string.symptoms_form_min_chars_hint)
             OutlinedTextField(
-                value       = text,
+                value         = text,
                 onValueChange = { text = it },
-                label       = { Text("Опишите симптомы подробно") },
-                placeholder = { Text("Например: Болит голова в висках, температура 37.8, кашель сухой 3 дня, слабость...") },
-                minLines    = 7,
-                maxLines    = 14,
-                modifier    = Modifier.fillMaxWidth(),
-                shape       = RoundedCornerShape(14.dp),
+                label         = { Text(stringResource(R.string.symptoms_form_field_label)) },
+                placeholder   = { Text(stringResource(R.string.symptoms_form_placeholder)) },
+                minLines      = 7,
+                maxLines      = 14,
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(14.dp),
                 supportingText = {
-                    val hint = if (text.length < 20) " · минимум 20 символов" else ""
+                    val hint = if (text.length < 20) minCharsHint else ""
                     Text("${text.length} / 5000$hint",
                         color = if (text.length < 20) MaterialTheme.colorScheme.error
                         else MaterialTheme.colorScheme.onSurfaceVariant)
@@ -340,11 +348,11 @@ fun SymptomsFormScreen(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp, color = Color.White)
                     Spacer(Modifier.width(10.dp))
-                    Text("Анализируем...")
+                    Text(stringResource(R.string.symptoms_btn_analyzing))
                 } else {
                     Icon(Icons.Default.AutoAwesome, null)
                     Spacer(Modifier.width(8.dp))
-                    Text("Анализировать симптомы", fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.symptoms_btn_analyze), fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -363,14 +371,13 @@ fun SymptomsResultScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Результат анализа") },
+                title = { Text(stringResource(R.string.symptoms_result_screen_title)) },
                 navigationIcon = {
-                    // Эта стрелка — единственная кнопка назад (в историю)
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor             = MaterialTheme.colorScheme.primary,
+                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         }
@@ -382,14 +389,14 @@ fun SymptomsResultScreen(
                 else                  -> Color(0xFF2E7D32)
             }
             val urgencyText = when (r.urgency) {
-                "emergency" -> "🚨 Экстренно — немедленно вызовите скорую помощь"
-                "urgent"    -> "⚠️ Срочно — обратитесь к врачу сегодня"
-                "normal"    -> "📋 Рекомендуется консультация врача"
-                else        -> "✅ Несрочно — запись в плановом порядке"
+                "emergency" -> stringResource(R.string.symptoms_urgency_emergency_full)
+                "urgent"    -> stringResource(R.string.symptoms_urgency_urgent_full)
+                "normal"    -> stringResource(R.string.symptoms_urgency_normal_full)
+                else        -> stringResource(R.string.symptoms_urgency_low_full)
             }
 
             LazyColumn(
-                modifier      = Modifier.padding(padding),
+                modifier       = Modifier.padding(padding),
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -404,20 +411,21 @@ fun SymptomsResultScreen(
                         }
                     }
                 }
-                item { ResultCard("🔍 Предварительная оценка", r.diagnosis) }
-                item { ResultCard("💊 Рекомендации", r.recommendations) }
+                item { ResultCard(stringResource(R.string.symptoms_result_diagnosis_title), r.diagnosis) }
+                item { ResultCard(stringResource(R.string.symptoms_result_recommendations_title), r.recommendations) }
                 item {
                     Card(shape = RoundedCornerShape(14.dp),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
                         Column(modifier = Modifier.padding(14.dp)) {
-                            Text("Точность модели", fontWeight = FontWeight.SemiBold,
+                            Text(stringResource(R.string.symptoms_result_accuracy_title),
+                                fontWeight = FontWeight.SemiBold,
                                 style = MaterialTheme.typography.labelLarge)
                             Spacer(Modifier.height(8.dp))
                             val pct = r.confidence.toFloatOrNull() ?: 0f
                             LinearProgressIndicator(
-                                progress = { pct },
-                                modifier  = Modifier.fillMaxWidth().height(8.dp)
+                                progress   = { pct },
+                                modifier   = Modifier.fillMaxWidth().height(8.dp)
                                     .clip(RoundedCornerShape(4.dp)),
                                 color      = MaterialTheme.colorScheme.primary,
                                 trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
@@ -445,27 +453,27 @@ fun SymptomsResultScreen(
                 r.specializationName?.let { specName ->
                     item {
                         Card(
-                            colors = CardDefaults.cardColors(
+                            colors   = CardDefaults.cardColors(
                                 containerColor = MaterialTheme.colorScheme.primaryContainer),
-                            shape = RoundedCornerShape(14.dp),
+                            shape    = RoundedCornerShape(14.dp),
                             modifier = Modifier.fillMaxWidth()
                         ) {
                             Column(modifier = Modifier.padding(16.dp)) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.MedicalServices, null,
                                         modifier = Modifier.size(20.dp),
-                                        tint = MaterialTheme.colorScheme.primary)
+                                        tint     = MaterialTheme.colorScheme.primary)
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Рекомендуемая специализация",
+                                    Text(stringResource(R.string.symptoms_result_spec_label),
                                         fontWeight = FontWeight.SemiBold,
-                                        style = MaterialTheme.typography.labelLarge,
-                                        color = MaterialTheme.colorScheme.primary)
+                                        style      = MaterialTheme.typography.labelLarge,
+                                        color      = MaterialTheme.colorScheme.primary)
                                 }
                                 Spacer(Modifier.height(6.dp))
                                 Text(specName,
                                     fontWeight = FontWeight.Bold,
-                                    style = MaterialTheme.typography.titleMedium,
-                                    color = MaterialTheme.colorScheme.onPrimaryContainer)
+                                    style      = MaterialTheme.typography.titleMedium,
+                                    color      = MaterialTheme.colorScheme.onPrimaryContainer)
                                 Spacer(Modifier.height(12.dp))
                                 Button(
                                     onClick  = { onFindDoctor(specName) },
@@ -474,7 +482,7 @@ fun SymptomsResultScreen(
                                 ) {
                                     Icon(Icons.Default.Search, null, Modifier.size(18.dp))
                                     Spacer(Modifier.width(8.dp))
-                                    Text("Найти врача — $specName")
+                                    Text(stringResource(R.string.symptoms_result_find_doctor_btn, specName))
                                 }
                             }
                         }
@@ -482,7 +490,8 @@ fun SymptomsResultScreen(
                 }
             }
         } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Результат недоступен", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.symptoms_result_unavailable),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

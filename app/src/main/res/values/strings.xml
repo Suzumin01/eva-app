@@ -179,6 +179,139 @@
     <string name="profile_menu_logout_sub">Вернуться на экран входа</string>
     <string name="profile_photo_error">Ошибка загрузки фото</string>
 
+    <!-- Splash Screen -->
+    <string name="splash_subtitle">E-Health Virtual Assistant</string>
+
+    <!-- Onboarding -->
+    <string name="onboarding_page1_title">Добро пожаловать в ЕВА</string>
+    <string name="onboarding_page1_desc">Ваш персональный медицинский помощник.\nЗаписывайтесь к врачам, отслеживайте здоровье\nи получайте AI-консультации.</string>
+    <string name="onboarding_page2_title">Запись к врачу онлайн</string>
+    <string name="onboarding_page2_desc">Выбирайте специалиста, удобную дату и время.\nВся история приёмов хранится в вашей\nмедицинской карте.</string>
+    <string name="onboarding_page3_title">AI-анализ симптомов</string>
+    <string name="onboarding_page3_desc">Опишите симптомы — искусственный интеллект\nоценит состояние и порекомендует,\nк какому врачу обратиться.</string>
+    <string name="onboarding_page4_title">Будьте в курсе</string>
+    <string name="onboarding_page4_desc">Получайте напоминания о предстоящих приёмах,\nуведомления о новых сообщениях\nи результатах анализов.</string>
+    <string name="btn_skip">Пропустить</string>
+    <string name="btn_next">Далее</string>
+    <string name="btn_start">Начать</string>
+
+    <!-- Consent Screen -->
+    <string name="consent_screen_title">Соглашения</string>
+    <string name="consent_screen_subtitle">Пожалуйста, ознакомьтесь с условиями перед использованием ЕВА</string>
+    <string name="consent_medical_title">Обработка медицинских данных *</string>
+    <string name="consent_medical_desc">Сбор и обработка медицинских данных для оказания услуг согласно ФЗ № 323-ФЗ.</string>
+    <string name="consent_privacy_title">Политика конфиденциальности *</string>
+    <string name="consent_privacy_desc">Обработка персональных данных согласно ФЗ № 152-ФЗ «О персональных данных».</string>
+    <string name="consent_ai_title">AI-анализ симптомов (необязательно)</string>
+    <string name="consent_ai_desc">Обработка описаний симптомов искусственным интеллектом. Можно принять позже при использовании функции.</string>
+    <string name="consent_required_hint">* Обязательные пункты</string>
+    <string name="btn_continue">Продолжить</string>
+    <string name="consent_skip_btn">Пропустить — решу позже</string>
+    <string name="consent_required_warning">Для полного доступа необходимо принять обязательные пункты</string>
+    <string name="consent_accept_label">Принимаю</string>
+    <string name="consent_gate_medical_title">Требуется согласие</string>
+    <string name="consent_gate_medical_text">Для записи на приём необходимо принять согласие на обработку медицинских данных.</string>
+    <string name="consent_gate_ai_title">Требуется согласие на AI-анализ</string>
+    <string name="consent_gate_ai_text">Для использования AI-анализа симптомов необходимо принять согласие на обработку данных AI-системой.</string>
+    <string name="consent_gate_accept_btn">Принять согласие</string>
+
+    <!-- Symptoms Screen -->
+    <string name="symptoms_result_dialog_title">Результат анализа</string>
+    <string name="symptoms_dialog_symptoms_label">Симптомы:</string>
+    <string name="symptoms_empty_title">Нет анализов</string>
+    <string name="symptoms_empty_hint">Нажмите «Новый запрос» чтобы описать симптомы</string>
+    <string name="symptoms_new_request_btn">Новый запрос</string>
+    <string name="symptoms_item_title">AI-анализ</string>
+    <string name="symptoms_form_screen_title">Описание симптомов</string>
+    <string name="symptoms_form_disclaimer">AI проанализирует симптомы и даст предварительную оценку. Это не заменяет консультацию врача.</string>
+    <string name="symptoms_form_field_label">Опишите симптомы подробно</string>
+    <string name="symptoms_form_placeholder">Например: Болит голова в висках, температура 37.8, кашель сухой 3 дня, слабость…</string>
+    <string name="symptoms_form_min_chars_hint"> · минимум 20 символов</string>
+    <string name="symptoms_btn_analyzing">Анализируем…</string>
+    <string name="symptoms_btn_analyze">Анализировать симптомы</string>
+    <string name="symptoms_result_screen_title">Результат анализа</string>
+    <string name="symptoms_urgency_emergency_full">🚨 Экстренно — немедленно вызовите скорую помощь</string>
+    <string name="symptoms_urgency_urgent_full">⚠️ Срочно — обратитесь к врачу сегодня</string>
+    <string name="symptoms_urgency_normal_full">📋 Рекомендуется консультация врача</string>
+    <string name="symptoms_urgency_low_full">✅ Несрочно — запись в плановом порядке</string>
+    <string name="symptoms_result_diagnosis_title">🔍 Предварительная оценка</string>
+    <string name="symptoms_result_recommendations_title">💊 Рекомендации</string>
+    <string name="symptoms_result_accuracy_title">Точность модели</string>
+    <string name="symptoms_result_spec_label">Рекомендуемая специализация</string>
+    <string name="symptoms_result_find_doctor_btn">Найти врача — %s</string>
+    <string name="symptoms_result_unavailable">Результат недоступен</string>
+
+    <!-- Doctor Detail Screen -->
+    <string name="doctor_add_review_btn">Оставить отзыв</string>
+    <string name="doctor_edit_review_title">Редактировать отзыв</string>
+    <string name="doctor_delete_review_title">Удалить отзыв?</string>
+    <string name="doctor_delete_review_text">Отзыв будет удалён, и вы снова сможете оставить новый.</string>
+    <string name="doctor_favorites_cd">Избранное</string>
+    <string name="doctor_book_btn">Записаться на приём</string>
+    <string name="doctor_stat_experience">лет опыта</string>
+    <string name="doctor_stat_rating">рейтинг</string>
+    <string name="doctor_stat_reviews">отзывов</string>
+    <string name="doctor_about_section">О враче</string>
+    <string name="doctor_reviews_count">Отзывы (%d)</string>
+    <string name="doctor_review_yours">Вы</string>
+    <string name="review_your_rating">Ваша оценка:</string>
+    <string name="review_rating_1">Очень плохо</string>
+    <string name="review_rating_2">Плохо</string>
+    <string name="review_rating_3">Удовлетворительно</string>
+    <string name="review_rating_4">Хорошо</string>
+    <string name="review_rating_5">Отлично</string>
+    <string name="review_comment_label">Комментарий (необязательно)</string>
+    <string name="btn_save">Сохранить</string>
+
+    <!-- Clinic Detail Screen -->
+    <string name="clinic_detail_yandex_maps_btn">Яндекс Карты</string>
+    <string name="clinic_detail_contact_info">Контактная информация</string>
+    <string name="clinic_detail_phone_label">Телефон</string>
+    <string name="clinic_detail_find_doctors_btn">Найти врачей в этой клинике</string>
+
+    <!-- Settings Screen -->
+    <string name="settings_screen_title">Настройки</string>
+    <string name="settings_section_personal">Личные данные</string>
+    <string name="settings_edit_profile">Редактировать профиль</string>
+    <string name="settings_edit_profile_sub">Имя, телефон, дата рождения, здоровье</string>
+    <string name="settings_section_privacy">Конфиденциальность</string>
+    <string name="settings_consent_medical">Обработка медицинских данных</string>
+    <string name="settings_consent_privacy">Политика конфиденциальности</string>
+    <string name="settings_consent_ai">AI-анализ симптомов</string>
+    <string name="settings_change_consents">Изменить согласия</string>
+    <string name="settings_section_appearance">Внешний вид</string>
+    <string name="settings_dark_theme">Тёмная тема</string>
+    <string name="settings_dark_theme_on">Включена</string>
+    <string name="settings_dark_theme_off">Выключена</string>
+    <string name="settings_section_about">О приложении</string>
+    <string name="settings_about_version">Версия</string>
+    <string name="settings_about_developer">Разработчик</string>
+    <string name="settings_about_license">Лицензия</string>
+
+    <!-- Edit Profile Screen -->
+    <string name="edit_profile_screen_title">Редактировать профиль</string>
+    <string name="edit_profile_full_name_label">Полное имя *</string>
+    <string name="edit_profile_name_min_error">Минимум 2 символа</string>
+    <string name="label_phone">Телефон</string>
+    <string name="edit_profile_phone_error">Введите 11 цифр (пример: 79001234567)</string>
+    <string name="edit_profile_phone_count">%d/11 цифр</string>
+    <string name="edit_profile_dob_label">Дата рождения</string>
+    <string name="edit_profile_dob_placeholder">дд.мм.гггг</string>
+    <string name="edit_profile_dob_error">Введите корректную дату (дд.мм.гггг)</string>
+    <string name="edit_profile_dob_hint">Введите вручную или нажмите 📅</string>
+    <string name="edit_profile_section_insurance">Страхование</string>
+    <string name="edit_profile_insurance_label">Номер полиса ОМС / ДМС</string>
+    <string name="edit_profile_insurance_placeholder">16 или 20 цифр</string>
+    <string name="edit_profile_insurance_error">ОМС: 16 цифр, ДМС: 20 цифр</string>
+    <string name="edit_profile_insurance_count">%d цифр введено</string>
+    <string name="edit_profile_section_medical">Медицинские данные</string>
+    <string name="edit_profile_medical_hint">Данные сохраняются на сервере и автоматически прикрепляются к записям на приём</string>
+    <string name="edit_profile_allergies_label">Аллергии</string>
+    <string name="edit_profile_allergies_placeholder">Пенициллин, орехи, пыльца…</string>
+    <string name="edit_profile_chronic_label">Хронические заболевания</string>
+    <string name="edit_profile_chronic_placeholder">Диабет 2 типа, гипертония…</string>
+    <string name="btn_save_changes">Сохранить изменения</string>
+
     <!-- Plurals -->
     <plurals name="doctors_count">
         <item quantity="one">%d врач</item>

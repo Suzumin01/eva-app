@@ -13,6 +13,7 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,6 +24,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.UserProfileResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
@@ -52,11 +54,11 @@ class PhoneVisualTransformation : VisualTransformation {
                 if (digits.isEmpty()) return 0
                 return when {
                     offset <= 0  -> 0
-                    offset <= 1  -> offset + 3   // "+7 ("
+                    offset <= 1  -> offset + 3
                     offset <= 4  -> offset + 3
-                    offset <= 7  -> offset + 5   // ") "
-                    offset <= 9  -> offset + 6   // "-"
-                    offset <= 11 -> offset + 7   // "-"
+                    offset <= 7  -> offset + 5
+                    offset <= 9  -> offset + 6
+                    offset <= 11 -> offset + 7
                     else         -> formatted.length
                 }
             }
@@ -97,7 +99,6 @@ class EditProfileViewModel @Inject constructor(
             _isSaving.value = true
             _error.value    = null
             val phoneDigits = phone.filter { it.isDigit() }
-            // Дата в формате dd.MM.yyyy → yyyy-MM-dd для сервера
             val dobForServer = dob.takeIf { it.isNotBlank() }?.let { d ->
                 val parts = d.split(".")
                 if (parts.size == 3) "${parts[2]}-${parts[1]}-${parts[0]}" else null
@@ -111,7 +112,6 @@ class EditProfileViewModel @Inject constructor(
                 insurancePolicy = insurance.trim()
             )) {
                 is Resource.Success -> {
-                    // Сохраняем имя локально для отображения в UI
                     r.data?.fullName?.let { tokenManager.saveUserName(it) }
                     _saved.value = true
                 }
@@ -139,16 +139,14 @@ fun EditProfileScreen(
     val snackbar  = remember { SnackbarHostState() }
     val context   = LocalContext.current
 
-    // Поля инициализируются как только пришёл профиль (fix issue 3)
-    var fullName  by remember { mutableStateOf("") }
-    var phone     by remember { mutableStateOf("") }  // только цифры
-    var dob       by remember { mutableStateOf("") }
-    var allergies by remember { mutableStateOf("") }
-    var chronic   by remember { mutableStateOf("") }
-    var insurance by remember { mutableStateOf("") }
+    var fullName    by remember { mutableStateOf("") }
+    var phone       by remember { mutableStateOf("") }
+    var dob         by remember { mutableStateOf("") }
+    var allergies   by remember { mutableStateOf("") }
+    var chronic     by remember { mutableStateOf("") }
+    var insurance   by remember { mutableStateOf("") }
     var initialized by remember { mutableStateOf(false) }
 
-    // Заполняем поля при загрузке (один раз)
     LaunchedEffect(profile) {
         val p = profile ?: return@LaunchedEffect
         if (!initialized) {
@@ -168,15 +166,13 @@ fun EditProfileScreen(
     LaunchedEffect(saved)  { if (saved) onSaved() }
     LaunchedEffect(error)  { error?.let { snackbar.showSnackbar(it); viewModel.clearError() } }
 
-    // Валидация
-    val phoneDigits  = phone.filter { it.isDigit() }
-    val phoneValid   = phoneDigits.isEmpty() || phoneDigits.length == 11
-    val insurDigits  = insurance.filter { it.isDigit() }
-    val insurValid   = insurance.isEmpty() || insurDigits.length in listOf(0, 16, 20)
-    val nameValid    = fullName.trim().length >= 2
-    val canSave      = nameValid && phoneValid && !isSaving
+    val phoneDigits = phone.filter { it.isDigit() }
+    val phoneValid  = phoneDigits.isEmpty() || phoneDigits.length == 11
+    val insurDigits = insurance.filter { it.isDigit() }
+    val insurValid  = insurance.isEmpty() || insurDigits.length in listOf(0, 16, 20)
+    val nameValid   = fullName.trim().length >= 2
+    val canSave     = nameValid && phoneValid && !isSaving
 
-    // DatePicker
     fun showDatePicker() {
         val cal = Calendar.getInstance()
         val parts = dob.split(".")
@@ -195,7 +191,7 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Редактировать профиль") },
+                title = { Text(stringResource(R.string.edit_profile_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -206,13 +202,14 @@ fun EditProfileScreen(
                     ) {
                         if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
                             color = MaterialTheme.colorScheme.onPrimary)
-                        else Text("Сохранить", color = MaterialTheme.colorScheme.onPrimary,
+                        else Text(stringResource(R.string.btn_save),
+                            color = MaterialTheme.colorScheme.onPrimary,
                             fontWeight = FontWeight.SemiBold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    containerColor             = MaterialTheme.colorScheme.primary,
+                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
                     navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
             )
         },
@@ -231,45 +228,41 @@ fun EditProfileScreen(
                 .verticalScroll(rememberScrollState()).padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-
-            EditSection("Личные данные") {
-                // Имя
+            EditSection(stringResource(R.string.settings_section_personal)) {
                 OutlinedTextField(
-                    value         = fullName,
-                    onValueChange = { fullName = it },
-                    label         = { Text("Полное имя *") },
-                    leadingIcon   = { Icon(Icons.Default.Person, null, Modifier.size(18.dp)) },
-                    isError       = fullName.isNotEmpty() && !nameValid,
+                    value          = fullName,
+                    onValueChange  = { fullName = it },
+                    label          = { Text(stringResource(R.string.edit_profile_full_name_label)) },
+                    leadingIcon    = { Icon(Icons.Default.Person, null, Modifier.size(18.dp)) },
+                    isError        = fullName.isNotEmpty() && !nameValid,
                     supportingText = if (fullName.isNotEmpty() && !nameValid)
-                    {{ Text("Минимум 2 символа") }} else null,
-                    modifier      = Modifier.fillMaxWidth(),
-                    shape         = RoundedCornerShape(10.dp),
-                    singleLine    = true
+                    {{ Text(stringResource(R.string.edit_profile_name_min_error)) }} else null,
+                    modifier       = Modifier.fillMaxWidth(),
+                    shape          = RoundedCornerShape(10.dp),
+                    singleLine     = true
                 )
 
-                // Телефон с маской
                 OutlinedTextField(
                     value         = phone,
                     onValueChange = { new ->
                         val digits = new.filter { it.isDigit() }.take(11)
                         phone = digits
                     },
-                    label         = { Text("Телефон") },
+                    label         = { Text(stringResource(R.string.label_phone)) },
                     leadingIcon   = { Icon(Icons.Default.Phone, null, Modifier.size(18.dp)) },
                     placeholder   = { Text("+7 (___) ___-__-__") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                     visualTransformation = PhoneVisualTransformation(),
                     isError       = !phoneValid,
                     supportingText = when {
-                        !phoneValid -> {{ Text("Введите 11 цифр (пример: 79001234567)") }}
-                        else        -> {{ Text("${phoneDigits.length}/11 цифр") }}
+                        !phoneValid -> {{ Text(stringResource(R.string.edit_profile_phone_error)) }}
+                        else        -> {{ Text(stringResource(R.string.edit_profile_phone_count, phoneDigits.length)) }}
                     },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
                     singleLine    = true
                 )
 
-                // Дата рождения — ввод с клавиатуры + кнопка пикера
                 val dobDigits = dob.replace(".", "").filter { it.isDigit() }
                 val dobValid  = dob.isEmpty() || (dobDigits.length == 8 && run {
                     val d = dobDigits.take(2).toIntOrNull() ?: 0
@@ -280,7 +273,6 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value         = dob,
                     onValueChange = { raw ->
-                        // Оставляем только цифры, добавляем точки автоматически
                         val digits = raw.replace(".", "").filter { it.isDigit() }.take(8)
                         dob = buildString {
                             digits.forEachIndexed { i, c ->
@@ -289,7 +281,7 @@ fun EditProfileScreen(
                             }
                         }
                     },
-                    label         = { Text("Дата рождения") },
+                    label         = { Text(stringResource(R.string.edit_profile_dob_label)) },
                     leadingIcon   = { Icon(Icons.Default.Cake, null, Modifier.size(18.dp)) },
                     trailingIcon  = {
                         IconButton(onClick = { showDatePicker() }) {
@@ -297,12 +289,14 @@ fun EditProfileScreen(
                                 tint = MaterialTheme.colorScheme.primary)
                         }
                     },
-                    placeholder   = { Text("дд.мм.гггг") },
+                    placeholder   = { Text(stringResource(R.string.edit_profile_dob_placeholder)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError       = dob.isNotEmpty() && !dobValid,
                     supportingText = when {
-                        dob.isNotEmpty() && !dobValid -> {{ Text("Введите корректную дату (дд.мм.гггг)") }}
-                        else -> {{ Text("Введите вручную или нажмите 📅") }}
+                        dob.isNotEmpty() && !dobValid ->
+                            {{ Text(stringResource(R.string.edit_profile_dob_error)) }}
+                        else ->
+                            {{ Text(stringResource(R.string.edit_profile_dob_hint)) }}
                     },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
@@ -310,21 +304,21 @@ fun EditProfileScreen(
                 )
             }
 
-            EditSection("Страхование") {
+            EditSection(stringResource(R.string.edit_profile_section_insurance)) {
                 OutlinedTextField(
                     value         = insurance,
                     onValueChange = { new ->
                         val digits = new.filter { it.isDigit() }.take(20)
                         insurance = digits
                     },
-                    label         = { Text("Номер полиса ОМС / ДМС") },
+                    label         = { Text(stringResource(R.string.edit_profile_insurance_label)) },
                     leadingIcon   = { Icon(Icons.Default.CardMembership, null, Modifier.size(18.dp)) },
-                    placeholder   = { Text("16 или 20 цифр") },
+                    placeholder   = { Text(stringResource(R.string.edit_profile_insurance_placeholder)) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     isError       = !insurValid,
                     supportingText = when {
-                        !insurValid -> {{ Text("ОМС: 16 цифр, ДМС: 20 цифр") }}
-                        insurance.isNotEmpty() -> {{ Text("${insurDigits.length} цифр введено") }}
+                        !insurValid -> {{ Text(stringResource(R.string.edit_profile_insurance_error)) }}
+                        insurance.isNotEmpty() -> {{ Text(stringResource(R.string.edit_profile_insurance_count, insurDigits.length)) }}
                         else -> null
                     },
                     modifier      = Modifier.fillMaxWidth(),
@@ -333,17 +327,17 @@ fun EditProfileScreen(
                 )
             }
 
-            EditSection("Медицинские данные") {
-                Text("Данные сохраняются на сервере и автоматически прикрепляются к записям на приём",
+            EditSection(stringResource(R.string.edit_profile_section_medical)) {
+                Text(stringResource(R.string.edit_profile_medical_hint),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
                     value         = allergies,
                     onValueChange = { allergies = it },
-                    label         = { Text("Аллергии") },
+                    label         = { Text(stringResource(R.string.edit_profile_allergies_label)) },
                     leadingIcon   = { Icon(Icons.Default.Warning, null, Modifier.size(18.dp)) },
-                    placeholder   = { Text("Пенициллин, орехи, пыльца...") },
+                    placeholder   = { Text(stringResource(R.string.edit_profile_allergies_placeholder)) },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
                     minLines = 2, maxLines = 3
@@ -351,9 +345,9 @@ fun EditProfileScreen(
                 OutlinedTextField(
                     value         = chronic,
                     onValueChange = { chronic = it },
-                    label         = { Text("Хронические заболевания") },
+                    label         = { Text(stringResource(R.string.edit_profile_chronic_label)) },
                     leadingIcon   = { Icon(Icons.Default.MonitorHeart, null, Modifier.size(18.dp)) },
-                    placeholder   = { Text("Диабет 2 типа, гипертония...") },
+                    placeholder   = { Text(stringResource(R.string.edit_profile_chronic_placeholder)) },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
                     minLines = 2, maxLines = 3
@@ -369,8 +363,11 @@ fun EditProfileScreen(
             ) {
                 if (isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary)
-                else { Icon(Icons.Default.Save, null); Spacer(Modifier.width(8.dp))
-                    Text("Сохранить изменения", fontWeight = FontWeight.SemiBold) }
+                else {
+                    Icon(Icons.Default.Save, null)
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.btn_save_changes), fontWeight = FontWeight.SemiBold)
+                }
             }
             Spacer(Modifier.height(16.dp))
         }
