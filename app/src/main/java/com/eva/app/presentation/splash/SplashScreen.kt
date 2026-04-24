@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import javax.inject.Inject
 
 @HiltViewModel
@@ -35,13 +37,25 @@ class SplashViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val hasToken     = tokenManager.token.first() != null
-            val consentShown = tokenManager.consentShown.first()
+            // Читаем DataStore параллельно и сразу прогреваем кеш токенов —
+            // без этого OkHttp-интерцептор и Authenticator видят null после перезапуска
+            coroutineScope {
+                val tokenDeferred   = async { tokenManager.token.first() }
+                val refreshDeferred = async { tokenManager.refreshToken.first() }
+                val consentDeferred = async { tokenManager.consentShown.first() }
 
-            _startDest.value = when {
-                !hasToken     -> Screen.Onboarding.route
-                !consentShown -> Screen.Consent.route
-                else          -> Screen.Home.route
+                val storedToken   = tokenDeferred.await()
+                val storedRefresh = refreshDeferred.await()
+                val consentShown  = consentDeferred.await()
+
+                tokenManager.cachedToken        = storedToken
+                tokenManager.cachedRefreshToken = storedRefresh
+
+                _startDest.value = when {
+                    storedToken == null -> Screen.Onboarding.route
+                    !consentShown       -> Screen.Consent.route
+                    else                -> Screen.Home.route
+                }
             }
         }
     }
