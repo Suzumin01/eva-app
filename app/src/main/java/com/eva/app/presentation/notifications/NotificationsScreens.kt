@@ -37,14 +37,18 @@ class NotificationsViewModel @Inject constructor(
     val notifications = _notifications.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage = _errorMessage.asStateFlow()
 
     init { load() }
 
     fun load() {
         viewModelScope.launch {
-            _isLoading.value = true
+            _isLoading.value  = true
+            _errorMessage.value = null
             when (val r = repository.getNotifications()) {
                 is Resource.Success -> _notifications.value = r.data
+                is Resource.Error   -> _errorMessage.value = r.message ?: "Ошибка загрузки"
                 else -> {}
             }
             _isLoading.value = false
@@ -76,6 +80,7 @@ fun NotificationsScreen(
 ) {
     val notifications by viewModel.notifications.collectAsState()
     val isLoading     by viewModel.isLoading.collectAsState()
+    val errorMessage  by viewModel.errorMessage.collectAsState()
     val hasUnread = notifications.any { !it.isRead }
 
     Scaffold(
@@ -100,6 +105,16 @@ fun NotificationsScreen(
     ) { padding ->
         when {
             isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            errorMessage != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(12.dp))
+                    Text(errorMessage!!, color = MaterialTheme.colorScheme.error)
+                    Spacer(Modifier.height(12.dp))
+                    TextButton(onClick = { viewModel.load() }) { Text("Повторить") }
+                }
+            }
             notifications.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.NotificationsNone, null, modifier = Modifier.size(64.dp),

@@ -55,26 +55,34 @@ class MedicalCardViewModel @Inject constructor(
     val isRefreshing = _isRefreshing.asStateFlow()
     private val _uploadError     = MutableStateFlow<String?>(null)
     val uploadError = _uploadError.asStateFlow()
+    private val _loadError       = MutableStateFlow<String?>(null)
+    val loadError = _loadError.asStateFlow()
 
     init { load() }
 
     fun load(isRefresh: Boolean = false) {
         viewModelScope.launch {
             if (isRefresh) _isRefreshing.value = true else _isLoading.value = true
+            _loadError.value = null
+            var firstError: String? = null
             when (val r = appointmentRepository.getMyAppointments()) {
                 is Resource.Success -> _appointments.value =
                     r.data.filter { it.status == "completed" }
                         .sortedByDescending { it.slotDate + it.slotTime }
+                is Resource.Error -> if (firstError == null) firstError = r.message
                 else -> {}
             }
             when (val r = symptomsRepository.getHistory()) {
                 is Resource.Success -> _symptomsHistory.value = r.data
+                is Resource.Error -> if (firstError == null) firstError = r.message
                 else -> {}
             }
             when (val r = documentRepository.getDocuments()) {
                 is Resource.Success -> _documents.value = r.data
+                is Resource.Error -> if (firstError == null) firstError = r.message
                 else -> {}
             }
+            _loadError.value = firstError
             _isLoading.value = false
             _isRefreshing.value = false
         }
@@ -112,6 +120,7 @@ fun MedicalCardScreen(
     val isLoading       by viewModel.isLoading.collectAsState()
     val isRefreshing    by viewModel.isRefreshing.collectAsState()
     val uploadError     by viewModel.uploadError.collectAsState()
+    val loadError       by viewModel.loadError.collectAsState()
     val snackbar         = remember { SnackbarHostState() }
 
     var tab                  by remember { mutableStateOf(0) }
@@ -121,6 +130,9 @@ fun MedicalCardScreen(
 
     LaunchedEffect(uploadError) {
         uploadError?.let { snackbar.showSnackbar(it); viewModel.clearUploadError() }
+    }
+    LaunchedEffect(loadError) {
+        loadError?.let { snackbar.showSnackbar("Ошибка загрузки: $it") }
     }
 
     // Диалог деталей приёма

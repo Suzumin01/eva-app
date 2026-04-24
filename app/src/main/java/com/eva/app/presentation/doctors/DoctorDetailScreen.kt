@@ -74,6 +74,7 @@ class DoctorDetailViewModel @Inject constructor(
             _isLoading.value = true
             when (val r = doctorRepository.getDoctorById(doctorId)) {
                 is Resource.Success -> _doctor.value = r.data
+                is Resource.Error   -> _error.value = r.message ?: "Не удалось загрузить врача"
                 else -> {}
             }
             loadReviews(doctorId)

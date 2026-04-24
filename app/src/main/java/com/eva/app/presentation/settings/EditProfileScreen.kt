@@ -150,15 +150,14 @@ fun EditProfileScreen(
 
     // Заполняем поля при загрузке (один раз)
     LaunchedEffect(profile) {
-        if (!initialized && profile != null) {
-            fullName  = profile!!.fullName
-            phone     = profile!!.phone?.filter { it.isDigit() } ?: ""
-            // Здоровье-поля теперь приходят с сервера
-            allergies = profile!!.allergies ?: ""
-            chronic   = profile!!.chronicDiseases ?: ""
-            insurance = profile!!.insurancePolicy ?: ""
-            // Дата с сервера: yyyy-MM-dd → dd.MM.yyyy
-            dob = profile!!.dateOfBirth?.let { iso ->
+        val p = profile ?: return@LaunchedEffect
+        if (!initialized) {
+            fullName  = p.fullName
+            phone     = p.phone?.filter { it.isDigit() } ?: ""
+            allergies = p.allergies ?: ""
+            chronic   = p.chronicDiseases ?: ""
+            insurance = p.insurancePolicy ?: ""
+            dob = p.dateOfBirth?.let { iso ->
                 val parts = iso.split("-")
                 if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else ""
             } ?: ""
