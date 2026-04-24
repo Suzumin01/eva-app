@@ -1,3 +1,203 @@
 <resources>
     <string name="app_name">ЕВА</string>
+    <string name="app_subtitle">Единый врачебный ассистент</string>
+
+    <!-- Common -->
+    <string name="btn_back">Назад</string>
+    <string name="btn_cancel">Отмена</string>
+    <string name="btn_close">Закрыть</string>
+    <string name="btn_delete">Удалить</string>
+    <string name="btn_retry">Повторить</string>
+    <string name="btn_send">Отправить</string>
+    <string name="btn_save_password">Сохранить пароль</string>
+    <string name="label_email">Email</string>
+    <string name="label_password">Пароль</string>
+    <string name="label_full_name">ФИО</string>
+    <string name="label_phone_optional">Телефон (необязательно)</string>
+    <string name="label_note_optional">Примечание (необязательно)</string>
+    <string name="label_description_optional">Описание (необязательно)</string>
+    <string name="label_date">Дата</string>
+    <string name="label_time">Время</string>
+    <string name="label_clinic">Клиника</string>
+    <string name="label_address">Адрес</string>
+    <string name="label_specialization">Специализация</string>
+    <string name="duration_minutes">%d мин</string>
+    <string name="duration_minutes_dot">%d мин.</string>
+    <string name="error_loading_prefix">Ошибка загрузки: %s</string>
+    <string name="error_passwords_mismatch">Пароли не совпадают</string>
+
+    <!-- Login Screen -->
+    <string name="login_title">Вход в аккаунт</string>
+    <string name="login_subtitle">Введите email и пароль</string>
+    <string name="btn_login">Войти</string>
+    <string name="link_forgot_password">Забыли пароль?</string>
+    <string name="link_register">Нет аккаунта? Зарегистрироваться</string>
+
+    <!-- Register Screen -->
+    <string name="register_screen_title">Регистрация</string>
+    <string name="register_subtitle">Создайте аккаунт ЕВА</string>
+    <string name="label_password_min">Пароль (мин. 8 символов)</string>
+    <string name="label_confirm_password">Повторите пароль</string>
+    <string name="btn_create_account">Создать аккаунт</string>
+
+    <!-- Forgot Password Screen -->
+    <string name="forgot_password_screen_title">Восстановление пароля</string>
+    <string name="forgot_password_heading">Забыли пароль?</string>
+    <string name="forgot_password_description">Введите email, привязанный к аккаунту. Мы пришлём инструкцию по сбросу пароля.</string>
+    <string name="forgot_password_success">Инструкция отправлена на %s</string>
+
+    <!-- Reset Password Screen -->
+    <string name="reset_password_screen_title">Новый пароль</string>
+    <string name="reset_password_heading">Установите новый пароль</string>
+    <string name="label_new_password">Новый пароль</string>
+
+    <!-- Home Screen -->
+    <string name="home_welcome">Добро пожаловать!</string>
+    <string name="home_section_favorites">Избранные</string>
+    <string name="menu_search_doctor">Поиск врача</string>
+    <string name="menu_search_doctor_sub">Специалисты по вашему запросу</string>
+    <string name="menu_clinics">Клиники</string>
+    <string name="menu_clinics_sub">Медицинские учреждения рядом</string>
+    <string name="menu_specializations">Специализации</string>
+    <string name="menu_specializations_sub">Выберите направление врача</string>
+    <string name="menu_ai_analysis">AI-анализ симптомов</string>
+    <string name="menu_ai_analysis_sub">Предварительная оценка состояния</string>
+    <string name="menu_my_appointments">Мои записи</string>
+    <string name="menu_my_appointments_sub">Предстоящие и прошедшие приёмы</string>
+
+    <!-- Doctors Screen -->
+    <string name="doctors_screen_title">Врачи</string>
+    <string name="doctors_search_hint">Поиск по имени врача</string>
+    <string name="doctors_filter_all_specs">Все специализации</string>
+    <string name="doctors_filter_spec_label">Специализация</string>
+    <string name="doctors_filter_all">Все</string>
+    <string name="doctors_filter_remove">Снять фильтр</string>
+    <string name="doctors_empty">Врачи не найдены</string>
+    <string name="doctors_all_loaded">Все врачи загружены</string>
+    <string name="doctor_clinic_fallback">Клиника #%d</string>
+
+    <!-- Clinics Screen -->
+    <string name="clinics_screen_title">Клиники</string>
+    <string name="specializations_screen_title">Специализации</string>
+
+    <!-- Appointments Screen -->
+    <string name="tab_upcoming">Предстоящие (%d)</string>
+    <string name="tab_past">Прошедшие (%d)</string>
+    <string name="appointments_upcoming_empty">Нет предстоящих записей</string>
+    <string name="appointments_past_empty">Нет прошедших записей</string>
+    <string name="appointment_cancel_dialog_title">Отменить запись?</string>
+    <string name="appointment_cancel_dialog_text">Запись к %s на %s будет отменена.</string>
+    <string name="appointment_cancel_within_24h">До приёма менее 24 часов. Возможен отказ в отмене.</string>
+    <string name="btn_cancel_appointment">Отменить запись</string>
+    <string name="appointment_status_scheduled">Запланирован</string>
+    <string name="appointment_status_completed">Завершена</string>
+    <string name="appointment_status_cancelled">Отменена</string>
+    <string name="appointment_detail_duration_label">Длит.</string>
+    <string name="appointment_detail_note">📝 Примечание</string>
+    <string name="appointment_detail_conclusion">Заключение врача</string>
+    <string name="appointment_conclusion_empty">Заключение ещё не добавлено</string>
+    <string name="appointment_created">Создано: %s</string>
+
+    <!-- Booking Screen -->
+    <string name="booking_screen_title">Запись на приём</string>
+    <string name="booking_confirm_dialog_title">Подтвердить запись</string>
+    <string name="booking_confirm_doctor">Врач: %s</string>
+    <string name="booking_confirm_date">Дата: %s</string>
+    <string name="booking_confirm_time">Время: %s</string>
+    <string name="btn_book">Записаться</string>
+    <string name="booking_no_slots_title">Нет доступных слотов</string>
+    <string name="booking_no_slots_hint">Выберите другого врача или попробуйте позже</string>
+    <string name="booking_select_date_label">Выберите дату</string>
+    <string name="booking_available_time">Доступное время — %s</string>
+    <string name="booking_no_slots_for_date">Нет слотов на эту дату</string>
+    <string name="booking_slots_loading">…</string>
+    <string name="booking_more_dates">Ещё</string>
+    <string name="booking_btn_confirm_with_time">Подтвердить: %s  %s</string>
+    <string name="booking_btn_select_slot">Выберите удобный слот</string>
+
+    <!-- Notifications Screen -->
+    <string name="notifications_screen_title">Уведомления</string>
+    <string name="notification_detail_title">Уведомление</string>
+    <string name="notifications_mark_all_read">Прочитать все</string>
+    <string name="notifications_empty">Нет уведомлений</string>
+    <string name="notification_not_found">Уведомление не найдено</string>
+    <string name="notification_channel_label">Канал: %s</string>
+
+    <!-- Medical Card Screen -->
+    <string name="medical_card_screen_title">Медицинская карта</string>
+    <string name="medical_tab_appointments">Приёмы (%d)</string>
+    <string name="medical_tab_ai">AI-анализы (%d)</string>
+    <string name="medical_tab_documents">Документы (%d)</string>
+    <string name="medical_card_no_appointments">Нет завершённых приёмов</string>
+    <string name="medical_card_no_ai">Нет AI-анализов</string>
+    <string name="medical_card_appt_specialization">Специализация</string>
+    <string name="medical_card_appt_clinic">Клиника</string>
+    <string name="medical_card_appt_address">Адрес</string>
+    <string name="medical_card_appt_date">Дата приёма</string>
+    <string name="medical_card_appt_duration">Длительность</string>
+    <string name="medical_card_appt_result">🩺 Результат приёма</string>
+    <string name="medical_card_conclusion_empty">Заключение не заполнено врачом</string>
+    <string name="medical_card_created_at">Запись создана: %s</string>
+    <string name="medical_card_ai_dialog_title">AI-анализ симптомов</string>
+    <string name="medical_card_ai_date">Дата: %s</string>
+    <string name="medical_card_ai_symptoms_desc">Описание симптомов</string>
+    <string name="medical_card_ai_assessment">Предварительная оценка</string>
+    <string name="medical_card_ai_recommendations">Рекомендации</string>
+    <string name="medical_card_ai_accuracy">Точность: %d%%</string>
+    <string name="medical_card_ai_card_title">AI-анализ</string>
+    <string name="medical_card_delete_dialog_title">Удалить документ?</string>
+    <string name="medical_card_delete_dialog_text">«%s» будет удалён без возможности восстановления.</string>
+    <string name="btn_upload_document">Загрузить документ</string>
+    <string name="documents_empty">Нет загруженных документов</string>
+    <string name="document_category_analysis">Анализ</string>
+    <string name="document_category_prescription">Рецепт</string>
+    <string name="document_category_xray">Снимок</string>
+    <string name="document_category_xray_upload">Снимок/МРТ</string>
+    <string name="document_category_other">Другое</string>
+    <string name="document_category_default">Документ</string>
+    <string name="upload_dialog_title">Загрузить документ</string>
+    <string name="upload_choose_file">Выбрать файл (PDF / фото)</string>
+    <string name="upload_type_label">Тип документа:</string>
+    <string name="btn_upload">Загрузить</string>
+
+    <!-- AI urgency labels -->
+    <string name="urgency_emergency">🚨 Экстренно</string>
+    <string name="urgency_urgent">⚠️ Срочно</string>
+    <string name="urgency_normal">📋 Норма</string>
+    <string name="urgency_low">✅ Несрочно</string>
+
+    <!-- Profile Screen -->
+    <string name="profile_avatar_cd">Аватар</string>
+    <string name="profile_logout_dialog_title">Выйти из аккаунта?</string>
+    <string name="profile_logout_dialog_text">Вы будете перенаправлены на экран входа.</string>
+    <string name="btn_logout">Выйти</string>
+    <string name="profile_menu_medical_card">Медицинская карта</string>
+    <string name="profile_menu_medical_card_sub">История приёмов и AI-анализов</string>
+    <string name="profile_menu_settings">Настройки</string>
+    <string name="profile_menu_settings_sub">Профиль, согласия, тема оформления</string>
+    <string name="profile_menu_logout">Выйти из аккаунта</string>
+    <string name="profile_menu_logout_sub">Вернуться на экран входа</string>
+    <string name="profile_photo_error">Ошибка загрузки фото</string>
+
+    <!-- Plurals -->
+    <plurals name="doctors_count">
+        <item quantity="one">%d врач</item>
+        <item quantity="few">%d врача</item>
+        <item quantity="many">%d врачей</item>
+        <item quantity="other">%d врачей</item>
+    </plurals>
+
+    <plurals name="experience_years">
+        <item quantity="one">%d год опыта</item>
+        <item quantity="few">%d года опыта</item>
+        <item quantity="many">%d лет опыта</item>
+        <item quantity="other">%d лет опыта</item>
+    </plurals>
+
+    <plurals name="booking_slots_count">
+        <item quantity="one">%d слот</item>
+        <item quantity="few">%d слота</item>
+        <item quantity="many">%d слотов</item>
+        <item quantity="other">%d слотов</item>
+    </plurals>
 </resources>

@@ -13,11 +13,14 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.DoctorResponse
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.data.repository.SpecializationRepository
@@ -51,7 +54,6 @@ class DoctorsViewModel @Inject constructor(
     val searchQuery  = _searchQuery.asStateFlow()
     private val _selectedSpec  = MutableStateFlow<Int?>(null)
     val selectedSpec = _selectedSpec.asStateFlow()
-    // Фильтр по клинике
     private val _selectedClinicId   = MutableStateFlow<Int?>(null)
     val selectedClinicId = _selectedClinicId.asStateFlow()
     private val _selectedClinicName = MutableStateFlow<String?>(null)
@@ -201,7 +203,7 @@ fun DoctorsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("Врачи") },
+                title = { Text(stringResource(R.string.doctors_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -214,11 +216,10 @@ fun DoctorsScreen(
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
 
-            // Строка поиска
             OutlinedTextField(
                 value         = searchQuery,
                 onValueChange = { viewModel.setSearch(it) },
-                placeholder   = { Text("Поиск по имени врача") },
+                placeholder   = { Text(stringResource(R.string.doctors_search_hint)) },
                 leadingIcon   = { Icon(Icons.Default.Search, null) },
                 trailingIcon  = {
                     if (searchQuery.isNotEmpty())
@@ -231,7 +232,6 @@ fun DoctorsScreen(
                 singleLine = true
             )
 
-            // Активный фильтр по клинике — чип с кнопкой удаления
             if (selectedClinicId != null) {
                 Row(
                     modifier = Modifier
@@ -243,7 +243,10 @@ fun DoctorsScreen(
                     FilterChip(
                         selected = true,
                         onClick  = {},
-                        label    = { Text(selectedClinicName ?: "Клиника #$selectedClinicId") },
+                        label    = {
+                            Text(selectedClinicName
+                                ?: stringResource(R.string.doctor_clinic_fallback, selectedClinicId!!))
+                        },
                         leadingIcon = {
                             Icon(Icons.Default.LocalHospital, null, Modifier.size(16.dp))
                         },
@@ -251,16 +254,20 @@ fun DoctorsScreen(
                             IconButton(
                                 onClick  = { viewModel.clearClinicFilter() },
                                 modifier = Modifier.size(18.dp)
-                            ) { Icon(Icons.Default.Close, "Снять фильтр", Modifier.size(14.dp)) }
+                            ) {
+                                Icon(Icons.Default.Close,
+                                    stringResource(R.string.doctors_filter_remove),
+                                    Modifier.size(14.dp))
+                            }
                         }
                     )
                 }
             }
 
-            // Фильтр специализаций
             var specExpanded by remember { mutableStateOf(false) }
             val selectedSpecName = specializations
-                .firstOrNull { it.first == selectedSpec }?.second ?: "Все специализации"
+                .firstOrNull { it.first == selectedSpec }?.second
+                ?: stringResource(R.string.doctors_filter_all_specs)
             ExposedDropdownMenuBox(
                 expanded  = specExpanded,
                 onExpandedChange = { specExpanded = !specExpanded },
@@ -270,7 +277,7 @@ fun DoctorsScreen(
                     value         = selectedSpecName,
                     onValueChange = {},
                     readOnly      = true,
-                    label         = { Text("Специализация") },
+                    label         = { Text(stringResource(R.string.doctors_filter_spec_label)) },
                     trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(specExpanded) },
                     modifier      = Modifier.menuAnchor().fillMaxWidth(),
                     shape         = RoundedCornerShape(14.dp),
@@ -318,7 +325,7 @@ fun DoctorsScreen(
                                 Icon(Icons.Default.SearchOff, null, modifier = Modifier.size(64.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(12.dp))
-                                Text("Врачи не найдены",
+                                Text(stringResource(R.string.doctors_empty),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -341,7 +348,7 @@ fun DoctorsScreen(
                             }
                             if (!hasMore && doctors.size >= PAGE_SIZE) {
                                 item {
-                                    Text("Все врачи загружены",
+                                    Text(stringResource(R.string.doctors_all_loaded),
                                         style = MaterialTheme.typography.labelSmall,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
@@ -380,13 +387,15 @@ fun DoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     doctor.rating?.let {
-                        Icon(Icons.Default.Star, null, tint = androidx.compose.ui.graphics.Color(0xFFFFC107),
+                        Icon(Icons.Default.Star, null,
+                            tint = androidx.compose.ui.graphics.Color(0xFFFFC107),
                             modifier = Modifier.size(12.dp))
                         Text(" $it", style = MaterialTheme.typography.labelSmall)
                         Spacer(Modifier.width(8.dp))
                     }
                     doctor.experienceYears?.let {
-                        Text("$it лет опыта", style = MaterialTheme.typography.labelSmall,
+                        Text(pluralStringResource(R.plurals.experience_years, it, it),
+                            style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }

@@ -16,12 +16,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.api.DocumentResponse
 import com.eva.app.data.api.SymptomsHistoryResponse
@@ -122,6 +125,7 @@ fun MedicalCardScreen(
     val uploadError     by viewModel.uploadError.collectAsState()
     val loadError       by viewModel.loadError.collectAsState()
     val snackbar         = remember { SnackbarHostState() }
+    val context          = LocalContext.current
 
     var tab                  by remember { mutableStateOf(0) }
     var selectedAppointment  by remember { mutableStateOf<AppointmentResponse?>(null) }
@@ -132,7 +136,9 @@ fun MedicalCardScreen(
         uploadError?.let { snackbar.showSnackbar(it); viewModel.clearUploadError() }
     }
     LaunchedEffect(loadError) {
-        loadError?.let { snackbar.showSnackbar("Ошибка загрузки: $it") }
+        loadError?.let {
+            snackbar.showSnackbar(context.getString(R.string.error_loading_prefix, it))
+        }
     }
 
     // Диалог деталей приёма
@@ -154,19 +160,26 @@ fun MedicalCardScreen(
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MedCardDetailRow(Icons.Default.LocalHospital, "Специализация", a.specializationName)
-                    MedCardDetailRow(Icons.Default.Business, "Клиника", a.clinicName)
-                    MedCardDetailRow(Icons.Default.LocationOn, "Адрес", a.clinicAddress)
-                    MedCardDetailRow(Icons.Default.CalendarMonth, "Дата приёма",
+                    MedCardDetailRow(Icons.Default.LocalHospital,
+                        stringResource(R.string.medical_card_appt_specialization), a.specializationName)
+                    MedCardDetailRow(Icons.Default.Business,
+                        stringResource(R.string.medical_card_appt_clinic), a.clinicName)
+                    MedCardDetailRow(Icons.Default.LocationOn,
+                        stringResource(R.string.medical_card_appt_address), a.clinicAddress)
+                    MedCardDetailRow(Icons.Default.CalendarMonth,
+                        stringResource(R.string.medical_card_appt_date),
                         "${formatDate(a.slotDate)}  ${formatTime(a.slotTime)}")
-                    MedCardDetailRow(Icons.Default.Timer, "Длительность", "${a.durationMinutes} мин.")
+                    MedCardDetailRow(Icons.Default.Timer,
+                        stringResource(R.string.medical_card_appt_duration),
+                        stringResource(R.string.duration_minutes_dot, a.durationMinutes))
                     HorizontalDivider()
                     Card(colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.primaryContainer),
                         shape = RoundedCornerShape(12.dp)) {
                         Column(modifier = Modifier.padding(12.dp),
                             verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text("🩺 Результат приёма", fontWeight = FontWeight.Bold,
+                            Text(stringResource(R.string.medical_card_appt_result),
+                                fontWeight = FontWeight.Bold,
                                 style = MaterialTheme.typography.labelLarge,
                                 color = MaterialTheme.colorScheme.primary)
                             if (!a.doctorConclusion.isNullOrBlank()) {
@@ -174,19 +187,21 @@ fun MedicalCardScreen(
                             } else if (a.notes != null) {
                                 Text(a.notes, style = MaterialTheme.typography.bodySmall)
                             } else {
-                                Text("Заключение не заполнено врачом",
+                                Text(stringResource(R.string.medical_card_conclusion_empty),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
                     }
-                    Text("Запись создана: ${formatDate(a.createdAt)}",
+                    Text(stringResource(R.string.medical_card_created_at, formatDate(a.createdAt)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             },
             confirmButton = {
-                Button(onClick = { selectedAppointment = null }) { Text("Закрыть") }
+                Button(onClick = { selectedAppointment = null }) {
+                    Text(stringResource(R.string.btn_close))
+                }
             }
         )
     }
@@ -206,18 +221,20 @@ fun MedicalCardScreen(
                     }
                 }
             },
-            title = { Text("AI-анализ симптомов", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.medical_card_ai_dialog_title),
+                fontWeight = FontWeight.Bold) },
             text = {
                 Column(modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Дата: ${formatDate(item.createdAt)}",
+                    Text(stringResource(R.string.medical_card_ai_date, formatDate(item.createdAt)),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Card(colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.surfaceVariant),
                         shape = RoundedCornerShape(10.dp)) {
                         Column(modifier = Modifier.padding(10.dp)) {
-                            Text("Описание симптомов", style = MaterialTheme.typography.labelSmall,
+                            Text(stringResource(R.string.medical_card_ai_symptoms_desc),
+                                style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                             Spacer(Modifier.height(4.dp))
                             Text(item.symptomsText, style = MaterialTheme.typography.bodySmall)
@@ -230,17 +247,17 @@ fun MedicalCardScreen(
                             else                  -> Color(0xFF2E7D32)
                         }
                         val urgencyText = when (ai.urgency) {
-                            "emergency" -> "🚨 Экстренно"
-                            "urgent"    -> "⚠️ Срочно"
-                            "normal"    -> "📋 Норма"
-                            else        -> "✅ Несрочно"
+                            "emergency" -> stringResource(R.string.urgency_emergency)
+                            "urgent"    -> stringResource(R.string.urgency_urgent)
+                            "normal"    -> stringResource(R.string.urgency_normal)
+                            else        -> stringResource(R.string.urgency_low)
                         }
                         Text(urgencyText, color = urgencyColor, fontWeight = FontWeight.Bold)
                         Card(colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.primaryContainer),
                             shape = RoundedCornerShape(10.dp)) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text("Предварительная оценка",
+                                Text(stringResource(R.string.medical_card_ai_assessment),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.height(4.dp))
@@ -251,7 +268,7 @@ fun MedicalCardScreen(
                             containerColor = MaterialTheme.colorScheme.tertiaryContainer),
                             shape = RoundedCornerShape(10.dp)) {
                             Column(modifier = Modifier.padding(10.dp)) {
-                                Text("Рекомендации",
+                                Text(stringResource(R.string.medical_card_ai_recommendations),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.tertiary)
                                 Spacer(Modifier.height(4.dp))
@@ -259,18 +276,17 @@ fun MedicalCardScreen(
                             }
                         }
                         val pct = ((ai.confidence.toFloatOrNull() ?: 0f) * 100).toInt()
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Точность: ", style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text("$pct%", style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.SemiBold,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
+                        Text(stringResource(R.string.medical_card_ai_accuracy, pct),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontWeight = FontWeight.SemiBold,
+                            color = MaterialTheme.colorScheme.primary)
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = { selectedSymptom = null }) { Text("Закрыть") }
+                Button(onClick = { selectedSymptom = null }) {
+                    Text(stringResource(R.string.btn_close))
+                }
             }
         )
     }
@@ -279,15 +295,22 @@ fun MedicalCardScreen(
     showDeleteDocDialog?.let { doc ->
         AlertDialog(
             onDismissRequest = { showDeleteDocDialog = null },
-            title = { Text("Удалить документ?") },
-            text  = { Text("«${doc.fileName}» будет удалён без возможности восстановления.") },
+            title = { Text(stringResource(R.string.medical_card_delete_dialog_title)) },
+            text  = { Text(stringResource(R.string.medical_card_delete_dialog_text, doc.fileName)) },
             confirmButton = {
-                Button(onClick = { viewModel.deleteDocument(doc.documentId); showDeleteDocDialog = null },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                    Text("Удалить")
+                Button(
+                    onClick = { viewModel.deleteDocument(doc.documentId); showDeleteDocDialog = null },
+                    colors  = ButtonDefaults.buttonColors(
+                        containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text(stringResource(R.string.btn_delete))
                 }
             },
-            dismissButton = { TextButton(onClick = { showDeleteDocDialog = null }) { Text("Отмена") } }
+            dismissButton = {
+                TextButton(onClick = { showDeleteDocDialog = null }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
+            }
         )
     }
 
@@ -295,7 +318,7 @@ fun MedicalCardScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text("Медицинская карта") },
+                title = { Text(stringResource(R.string.medical_card_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -314,11 +337,14 @@ fun MedicalCardScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 TabRow(selectedTabIndex = tab) {
                     Tab(selected = tab == 0, onClick = { tab = 0 },
-                        text = { Text("Приёмы (${appointments.size})") })
+                        text = { Text(stringResource(R.string.medical_tab_appointments,
+                            appointments.size)) })
                     Tab(selected = tab == 1, onClick = { tab = 1 },
-                        text = { Text("AI-анализы (${symptomsHistory.size})") })
+                        text = { Text(stringResource(R.string.medical_tab_ai,
+                            symptomsHistory.size)) })
                     Tab(selected = tab == 2, onClick = { tab = 2 },
-                        text = { Text("Документы (${documents.size})") })
+                        text = { Text(stringResource(R.string.medical_tab_documents,
+                            documents.size)) })
                 }
 
                 when {
@@ -327,7 +353,8 @@ fun MedicalCardScreen(
                     }
                     tab == 0 -> {
                         if (appointments.isEmpty()) {
-                            MedCardEmpty(Icons.Default.EventNote, "Нет завершённых приёмов")
+                            MedCardEmpty(Icons.Default.EventNote,
+                                stringResource(R.string.medical_card_no_appointments))
                         } else {
                             LazyColumn(contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -346,7 +373,8 @@ fun MedicalCardScreen(
                     }
                     else -> {
                         if (symptomsHistory.isEmpty()) {
-                            MedCardEmpty(Icons.Default.Psychology, "Нет AI-анализов")
+                            MedCardEmpty(Icons.Default.Psychology,
+                                stringResource(R.string.medical_card_no_ai))
                         } else {
                             LazyColumn(contentPadding = PaddingValues(16.dp),
                                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -410,10 +438,10 @@ fun SymptomMedCard(item: SymptomsHistoryResponse, onClick: () -> Unit) {
         else                  -> Color(0xFF2E7D32)
     }
     val urgencyLabel = when (urgency) {
-        "emergency" -> "🚨 Срочно"
-        "urgent"    -> "⚠️ Срочно"
-        "normal"    -> "📋 Норма"
-        else        -> "✅ Несрочно"
+        "emergency" -> stringResource(R.string.urgency_emergency)
+        "urgent"    -> stringResource(R.string.urgency_urgent)
+        "normal"    -> stringResource(R.string.urgency_normal)
+        else        -> stringResource(R.string.urgency_low)
     }
     Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
         shape = RoundedCornerShape(16.dp),
@@ -433,7 +461,8 @@ fun SymptomMedCard(item: SymptomsHistoryResponse, onClick: () -> Unit) {
                 Row(modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically) {
-                    Text("AI-анализ", fontWeight = FontWeight.SemiBold,
+                    Text(stringResource(R.string.medical_card_ai_card_title),
+                        fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.bodyMedium)
                     Text(urgencyLabel, style = MaterialTheme.typography.labelSmall,
                         color = urgencyColor, fontWeight = FontWeight.SemiBold)
@@ -504,11 +533,12 @@ fun DocumentsTab(
         ) {
             Icon(Icons.Default.Upload, null, modifier = Modifier.size(18.dp))
             Spacer(Modifier.width(8.dp))
-            Text("Загрузить документ")
+            Text(stringResource(R.string.btn_upload_document))
         }
 
         if (documents.isEmpty()) {
-            MedCardEmpty(Icons.Default.Description, "Нет загруженных документов")
+            MedCardEmpty(Icons.Default.Description,
+                stringResource(R.string.documents_empty))
         } else {
             LazyColumn(
                 contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
@@ -531,10 +561,10 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
         else                                  -> Icons.Default.Description to Color(0xFF616161)
     }
     val categoryLabel = when (doc.category) {
-        "analysis"     -> "Анализ"
-        "prescription" -> "Рецепт"
-        "xray"         -> "Снимок"
-        else           -> "Документ"
+        "analysis"     -> stringResource(R.string.document_category_analysis)
+        "prescription" -> stringResource(R.string.document_category_prescription)
+        "xray"         -> stringResource(R.string.document_category_xray)
+        else           -> stringResource(R.string.document_category_default)
     }
     val sizeText = when {
         doc.fileSize < 1024        -> "${doc.fileSize} Б"
@@ -557,7 +587,8 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
                     maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     AssistChip(onClick = {},
-                        label = { Text(categoryLabel, style = MaterialTheme.typography.labelSmall) },
+                        label = { Text(categoryLabel,
+                            style = MaterialTheme.typography.labelSmall) },
                         modifier = Modifier.height(22.dp))
                     Text(sizeText, style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -570,7 +601,8 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
                 }
             }
             IconButton(onClick = onDelete) {
-                Icon(Icons.Default.DeleteOutline, null, tint = MaterialTheme.colorScheme.error)
+                Icon(Icons.Default.DeleteOutline, null,
+                    tint = MaterialTheme.colorScheme.error)
             }
         }
     }
@@ -597,31 +629,37 @@ fun UploadDocumentDialog(
     }
 
     val categories = listOf(
-        "analysis" to "Анализ", "prescription" to "Рецепт",
-        "xray" to "Снимок/МРТ", "other" to "Другое"
+        "analysis"     to stringResource(R.string.document_category_analysis),
+        "prescription" to stringResource(R.string.document_category_prescription),
+        "xray"         to stringResource(R.string.document_category_xray_upload),
+        "other"        to stringResource(R.string.document_category_other)
     )
 
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Загрузить документ") },
+        title = { Text(stringResource(R.string.upload_dialog_title)) },
         text  = {
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 OutlinedButton(onClick = { launcher.launch("*/*") },
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
                     Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(6.dp))
-                    Text(if (fileName.isEmpty()) "Выбрать файл (PDF / фото)" else fileName,
+                    Text(
+                        if (fileName.isEmpty()) stringResource(R.string.upload_choose_file)
+                        else fileName,
                         maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
-                Text("Тип документа:", style = MaterialTheme.typography.bodySmall)
+                Text(stringResource(R.string.upload_type_label),
+                    style = MaterialTheme.typography.bodySmall)
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                     categories.forEach { (key, label) ->
                         FilterChip(selected = category == key, onClick = { category = key },
-                            label = { Text(label, style = MaterialTheme.typography.labelSmall) })
+                            label = { Text(label,
+                                style = MaterialTheme.typography.labelSmall) })
                     }
                 }
                 OutlinedTextField(value = description, onValueChange = { description = it },
-                    label = { Text("Описание (необязательно)") },
+                    label = { Text(stringResource(R.string.label_description_optional)) },
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
                     singleLine = true)
             }
@@ -638,8 +676,10 @@ fun UploadDocumentDialog(
                     }
                 },
                 enabled = pickedUri != null
-            ) { Text("Загрузить") }
+            ) { Text(stringResource(R.string.btn_upload)) }
         },
-        dismissButton = { TextButton(onClick = onDismiss) { Text("Отмена") } }
+        dismissButton = {
+            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+        }
     )
 }

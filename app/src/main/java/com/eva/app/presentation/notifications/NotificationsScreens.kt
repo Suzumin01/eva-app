@@ -14,11 +14,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.NotificationResponse
 import com.eva.app.data.repository.NotificationRepository
 import com.eva.app.util.Resource
@@ -86,13 +88,18 @@ fun NotificationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Уведомления") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                title = { Text(stringResource(R.string.notifications_screen_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                },
                 actions = {
                     if (hasUnread) {
-                        TextButton(onClick = { viewModel.markAllRead() },
-                            colors = ButtonDefaults.textButtonColors(contentColor = MaterialTheme.colorScheme.onPrimary)) {
-                            Text("Прочитать все")
+                        TextButton(
+                            onClick = { viewModel.markAllRead() },
+                            colors  = ButtonDefaults.textButtonColors(
+                                contentColor = MaterialTheme.colorScheme.onPrimary)
+                        ) {
+                            Text(stringResource(R.string.notifications_mark_all_read))
                         }
                     }
                 },
@@ -104,23 +111,34 @@ fun NotificationsScreen(
         }
     ) { padding ->
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-            errorMessage != null -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            errorMessage != null -> Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.ErrorOutline, null, modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.height(12.dp))
                     Text(errorMessage!!, color = MaterialTheme.colorScheme.error)
                     Spacer(Modifier.height(12.dp))
-                    TextButton(onClick = { viewModel.load() }) { Text("Повторить") }
+                    TextButton(onClick = { viewModel.load() }) {
+                        Text(stringResource(R.string.btn_retry))
+                    }
                 }
             }
-            notifications.isEmpty() -> Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
+            notifications.isEmpty() -> Box(
+                Modifier.fillMaxSize().padding(padding),
+                contentAlignment = Alignment.Center
+            ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Icon(Icons.Default.NotificationsNone, null, modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Text("Нет уведомлений", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(stringResource(R.string.notifications_empty),
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
             else -> LazyColumn(modifier = Modifier.padding(padding)) {
@@ -139,19 +157,23 @@ fun NotificationsScreen(
 @Composable
 fun NotifListItem(notif: NotificationResponse, onClick: () -> Unit) {
     Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(horizontal = 16.dp, vertical = 12.dp),
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.Top
     ) {
         Surface(shape = RoundedCornerShape(12.dp), modifier = Modifier.size(44.dp),
-            color = if (notif.isRead) MaterialTheme.colorScheme.surfaceVariant else MaterialTheme.colorScheme.primaryContainer) {
+            color = if (notif.isRead) MaterialTheme.colorScheme.surfaceVariant
+                    else MaterialTheme.colorScheme.primaryContainer) {
             Box(contentAlignment = Alignment.Center) {
                 Icon(Icons.Default.Notifications, null, modifier = Modifier.size(22.dp),
-                    tint = if (notif.isRead) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.primary)
+                    tint = if (notif.isRead) MaterialTheme.colorScheme.onSurfaceVariant
+                           else MaterialTheme.colorScheme.primary)
             }
         }
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
+            Row(modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Text(notif.title,
                     fontWeight = if (notif.isRead) FontWeight.Normal else FontWeight.Bold,
@@ -185,8 +207,10 @@ fun NotificationDetailScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Уведомление") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                title = { Text(stringResource(R.string.notification_detail_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.primary,
                     titleContentColor = MaterialTheme.colorScheme.onPrimary,
@@ -205,7 +229,8 @@ fun NotificationDetailScreen(
                             modifier = Modifier.size(52.dp)) {
                             Box(contentAlignment = Alignment.Center) {
                                 Icon(Icons.Default.Notifications, null,
-                                    tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                                    tint = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(28.dp))
                             }
                         }
                         Spacer(Modifier.height(14.dp))
@@ -227,7 +252,8 @@ fun NotificationDetailScreen(
                                 Icon(Icons.Default.Label, null, modifier = Modifier.size(14.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.width(4.dp))
-                                Text("Канал: ${n.channel}", style = MaterialTheme.typography.labelSmall,
+                                Text(stringResource(R.string.notification_channel_label, n.channel),
+                                    style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -235,7 +261,8 @@ fun NotificationDetailScreen(
                 }
             }
         } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("Уведомление не найдено", color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(stringResource(R.string.notification_not_found),
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

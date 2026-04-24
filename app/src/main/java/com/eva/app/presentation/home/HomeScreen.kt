@@ -18,6 +18,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -25,6 +26,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.DoctorResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.DoctorRepository
@@ -49,7 +51,6 @@ class HomeViewModel @Inject constructor(
     val favDoctors = _favDoctors.asStateFlow()
 
     init {
-        // Следим за списком избранных и загружаем данные врачей параллельно
         viewModelScope.launch {
             tokenManager.favoriteDoctors.collect { json ->
                 val arr = runCatching { JSONArray(json) }.getOrDefault(JSONArray())
@@ -85,20 +86,29 @@ fun HomeScreen(
     val favDoctors by viewModel.favDoctors.collectAsState()
 
     val items = listOf(
-        HomeItem(Icons.Default.Search, "Поиск врача", "Специалисты по вашему запросу",
+        HomeItem(Icons.Default.Search,
+            stringResource(R.string.menu_search_doctor),
+            stringResource(R.string.menu_search_doctor_sub),
             listOf(Color(0xFF1565C0), Color(0xFF42A5F5)), onDoctors),
-        HomeItem(Icons.Default.LocalHospital, "Клиники", "Медицинские учреждения рядом",
+        HomeItem(Icons.Default.LocalHospital,
+            stringResource(R.string.menu_clinics),
+            stringResource(R.string.menu_clinics_sub),
             listOf(Color(0xFF00838F), Color(0xFF4DD0E1)), onClinics),
-        HomeItem(Icons.Default.MedicalServices, "Специализации", "Выберите направление врача",
+        HomeItem(Icons.Default.MedicalServices,
+            stringResource(R.string.menu_specializations),
+            stringResource(R.string.menu_specializations_sub),
             listOf(Color(0xFF6A1B9A), Color(0xFFAB47BC)), onSpecializations),
-        HomeItem(Icons.Default.Psychology, "AI-анализ симптомов", "Предварительная оценка состояния",
+        HomeItem(Icons.Default.Psychology,
+            stringResource(R.string.menu_ai_analysis),
+            stringResource(R.string.menu_ai_analysis_sub),
             listOf(Color(0xFF2E7D32), Color(0xFF66BB6A)), onSymptoms),
-        HomeItem(Icons.Default.CalendarMonth, "Мои записи", "Предстоящие и прошедшие приёмы",
+        HomeItem(Icons.Default.CalendarMonth,
+            stringResource(R.string.menu_my_appointments),
+            stringResource(R.string.menu_my_appointments_sub),
             listOf(Color(0xFFE65100), Color(0xFFFF8A65)), onAppointments),
     )
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
-        // Хедер с избранными внутри градиента
         item {
             Box(
                 Modifier.fillMaxWidth()
@@ -106,17 +116,17 @@ fun HomeScreen(
                         Color(0xFF1565C0), Color(0xFF42A5F5))))
             ) {
                 Column {
-                    // Приветствие
                     Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, top = 24.dp)) {
-                        Text("Добро пожаловать!", color = Color.White.copy(alpha = 0.85f),
+                        Text(stringResource(R.string.home_welcome),
+                            color = Color.White.copy(alpha = 0.85f),
                             style = MaterialTheme.typography.bodyMedium)
-                        Text(userName, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                        Text(userName, color = Color.White,
+                            fontSize = 22.sp, fontWeight = FontWeight.Bold)
                     }
 
-                    // Избранные врачи прямо на градиенте (если есть)
                     if (favDoctors.isNotEmpty()) {
                         Spacer(Modifier.height(16.dp))
-                        Text("Избранные",
+                        Text(stringResource(R.string.home_section_favorites),
                             color = Color.White.copy(alpha = 0.8f),
                             style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(horizontal = 24.dp))
@@ -157,7 +167,6 @@ fun FavoriteDoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
         modifier = Modifier.width(68.dp).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        // Белый кружок с рамкой — на фоне градиента хорошо читается
         Box(contentAlignment = Alignment.Center, modifier = Modifier.size(60.dp)) {
             Box(
                 modifier = Modifier

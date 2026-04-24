@@ -16,11 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.api.DoctorResponse
 import com.eva.app.data.api.ScheduleResponse
@@ -52,11 +55,9 @@ class BookingViewModel @Inject constructor(
     private val _doctor      = MutableStateFlow<DoctorResponse?>(null)
     val doctor = _doctor.asStateFlow()
 
-    // Слоты хранятся по дате: date -> list of slots
     private val _slotsByDate = MutableStateFlow<Map<String, List<ScheduleResponse>>>(emptyMap())
     val slotsByDate = _slotsByDate.asStateFlow()
 
-    // Список дат с доступными слотами
     private val _availableDates = MutableStateFlow<List<String>>(emptyList())
     val availableDates = _availableDates.asStateFlow()
 
@@ -88,8 +89,6 @@ class BookingViewModel @Inject constructor(
             }
             loadDateRange(LocalDate.now(), LocalDate.now().plusDays(DAYS_PER_PAGE.toLong()))
 
-            // Если первый диапазон пустой (выходные / праздники) — автоматически
-            // листаем вперёд пока не найдём слоты или не выйдем за 90 дней
             var attempts = 0
             while (_availableDates.value.isEmpty() && _hasMoreDates.value && attempts < 4) {
                 val from = loadedUntil.plusDays(1)
@@ -102,7 +101,6 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    // Загрузка следующего диапазона дат
     fun loadMoreDates() {
         viewModelScope.launch {
             _isLoadingMore.value = true
@@ -113,7 +111,6 @@ class BookingViewModel @Inject constructor(
         }
     }
 
-    // Загрузка слотов конкретной даты (если ещё не загружены)
     fun loadSlotsForDate(date: String) {
         if (_slotsByDate.value.containsKey(date)) return
         viewModelScope.launch {
@@ -132,7 +129,6 @@ class BookingViewModel @Inject constructor(
     }
 
     private suspend fun loadDateRange(from: LocalDate, to: LocalDate) {
-        // Жёсткий лимит: не загружаем дальше 90 дней от сегодня
         val maxDate = LocalDate.now().plusDays(90)
         if (from.isAfter(maxDate)) {
             _hasMoreDates.value = false
@@ -147,13 +143,8 @@ class BookingViewModel @Inject constructor(
         )) {
             is Resource.Success -> {
                 val slots = r.data.filter { it.isAvailable }
-                // Всегда обновляем loadedUntil — даже если диапазон пустой,
-                // чтобы следующий вызов шёл дальше, а не по тому же диапазону
                 loadedUntil = to
                 if (slots.isEmpty()) {
-                    // Пустой диапазон != конец расписания (могут быть выходные).
-                    // hasMoreDates остаётся true — пользователь может нажать "Ещё"
-                    // или load() автоматически продвинется дальше.
                     _hasMoreDates.value = !from.isAfter(maxDate)
                 } else {
                     val grouped  = slots.groupBy { it.slotDate }
@@ -214,7 +205,6 @@ fun BookingScreen(
     LaunchedEffect(doctorId) { viewModel.load(doctorId) }
     LaunchedEffect(bookState) { if (bookState is BookState.Success) onSuccess() }
 
-    // Автовыбор первой даты и загрузка её слотов
     LaunchedEffect(availableDates) {
         if (selectedDate == null && availableDates.isNotEmpty()) {
             selectedDate = availableDates.first()
@@ -233,16 +223,19 @@ fun BookingScreen(
     if (showConfirm && selectedSlot != null) {
         AlertDialog(
             onDismissRequest = { showConfirm = false },
-            title = { Text("Подтвердить запись", fontWeight = FontWeight.Bold) },
+            title = { Text(stringResource(R.string.booking_confirm_dialog_title),
+                fontWeight = FontWeight.Bold) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Врач: ${doctor?.fullName}")
-                    Text("Дата: ${formatDate(selectedSlot!!.slotDate)}")
-                    Text("Время: ${formatTime(selectedSlot!!.slotTime)}")
+                    Text(stringResource(R.string.booking_confirm_doctor, doctor?.fullName ?: ""))
+                    Text(stringResource(R.string.booking_confirm_date,
+                        formatDate(selectedSlot!!.slotDate)))
+                    Text(stringResource(R.string.booking_confirm_time,
+                        formatTime(selectedSlot!!.slotTime)))
                     Spacer(Modifier.height(10.dp))
                     OutlinedTextField(
                         value = notes, onValueChange = { notes = it },
-                        label = { Text("Примечание (необязательно)") },
+                        label = { Text(stringResource(R.string.label_note_optional)) },
                         minLines = 2, modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(10.dp)
                     )
@@ -259,11 +252,13 @@ fun BookingScreen(
                 ) {
                     if (bookState is BookState.Loading)
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                    else Text("Записаться")
+                    else Text(stringResource(R.string.btn_book))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showConfirm = false }) { Text("Отмена") }
+                TextButton(onClick = { showConfirm = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
             }
         )
     }
@@ -271,7 +266,7 @@ fun BookingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Запись на приём") },
+                title = { Text(stringResource(R.string.booking_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -310,8 +305,10 @@ fun BookingScreen(
                             val slot = selectedSlot
                             Text(
                                 if (slot != null)
-                                    "Подтвердить: ${formatTime(slot.slotTime)}  ${formatDate(slot.slotDate)}"
-                                else "Выберите удобный слот",
+                                    stringResource(R.string.booking_btn_confirm_with_time,
+                                        formatTime(slot.slotTime), formatDate(slot.slotDate))
+                                else
+                                    stringResource(R.string.booking_btn_select_slot),
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -333,9 +330,9 @@ fun BookingScreen(
                     Icon(Icons.Default.EventBusy, null, modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(12.dp))
-                    Text("Нет доступных слотов",
+                    Text(stringResource(R.string.booking_no_slots_title),
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Выберите другого врача или попробуйте позже",
+                    Text(stringResource(R.string.booking_no_slots_hint),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
@@ -381,7 +378,7 @@ fun BookingScreen(
 
             item {
                 Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                    Text("Выберите дату",
+                    Text(stringResource(R.string.booking_select_date_label),
                         fontWeight = FontWeight.SemiBold,
                         style = MaterialTheme.typography.titleSmall,
                         color = MaterialTheme.colorScheme.primary)
@@ -393,8 +390,8 @@ fun BookingScreen(
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         availableDates.forEach { date ->
-                            val isSel      = selectedDate == date
-                            val dateSlots  = slotsByDate[date]?.size
+                            val isSel     = selectedDate == date
+                            val dateSlots = slotsByDate[date]?.size
                             FilterChip(
                                 selected = isSel,
                                 onClick  = { selectedDate = date },
@@ -405,10 +402,14 @@ fun BookingScreen(
                                             fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                             style = MaterialTheme.typography.labelMedium)
                                         Text(
-                                            if (dateSlots != null) "$dateSlots слотов" else "...",
+                                            if (dateSlots != null)
+                                                pluralStringResource(R.plurals.booking_slots_count,
+                                                    dateSlots, dateSlots)
+                                            else
+                                                stringResource(R.string.booking_slots_loading),
                                             style = MaterialTheme.typography.labelSmall,
                                             color = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer
-                                            else MaterialTheme.colorScheme.onSurfaceVariant
+                                                    else MaterialTheme.colorScheme.onSurfaceVariant
                                         )
                                     }
                                 },
@@ -416,7 +417,6 @@ fun BookingScreen(
                             )
                         }
 
-                        // Кнопка "Ещё даты"
                         if (hasMoreDates) {
                             if (isLoadingMore) {
                                 Box(Modifier.padding(horizontal = 8.dp, vertical = 12.dp)) {
@@ -430,7 +430,8 @@ fun BookingScreen(
                                 ) {
                                     Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
                                     Spacer(Modifier.width(4.dp))
-                                    Text("Ещё", style = MaterialTheme.typography.labelMedium)
+                                    Text(stringResource(R.string.booking_more_dates),
+                                        style = MaterialTheme.typography.labelMedium)
                                 }
                             }
                         }
@@ -442,7 +443,7 @@ fun BookingScreen(
             item {
                 selectedDate?.let { date ->
                     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-                        Text("Доступное время — ${formatDateLabel(date)}",
+                        Text(stringResource(R.string.booking_available_time, formatDateLabel(date)),
                             fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.primary)
@@ -454,7 +455,7 @@ fun BookingScreen(
                                 CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
                             }
                         } else if (slotsForDate.isEmpty()) {
-                            Text("Нет слотов на эту дату",
+                            Text(stringResource(R.string.booking_no_slots_for_date),
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 style = MaterialTheme.typography.bodySmall)
                         } else {
@@ -486,7 +487,7 @@ fun BookingScreen(
                                                 formatTime(slot.slotTime),
                                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
                                                 color = if (isSel) Color.White
-                                                else MaterialTheme.colorScheme.onSurface,
+                                                        else MaterialTheme.colorScheme.onSurface,
                                                 style = MaterialTheme.typography.bodyMedium
                                             )
                                         }

@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.*
 import androidx.compose.ui.unit.dp
@@ -22,6 +23,7 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.repository.AuthRepository
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
@@ -124,8 +126,9 @@ fun LoginScreen(
                 }
             }
             Spacer(Modifier.height(16.dp))
-            Text("ЕВА", color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
-            Text("Единый врачебный ассистент",
+            Text(stringResource(R.string.app_name),
+                color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.app_subtitle),
                 color = Color.White.copy(alpha = 0.85f),
                 style = MaterialTheme.typography.bodyMedium)
 
@@ -140,16 +143,17 @@ fun LoginScreen(
                 elevation = CardDefaults.cardElevation(12.dp)
             ) {
                 Column(modifier = Modifier.padding(24.dp)) {
-                    Text("Вход в аккаунт", fontWeight = FontWeight.Bold, fontSize = 20.sp)
+                    Text(stringResource(R.string.login_title),
+                        fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Spacer(Modifier.height(4.dp))
-                    Text("Введите email и пароль",
+                    Text(stringResource(R.string.login_subtitle),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(20.dp))
 
                     OutlinedTextField(
                         value = email, onValueChange = { email = it },
-                        label = { Text("Email") },
+                        label = { Text(stringResource(R.string.label_email)) },
                         leadingIcon = { Icon(Icons.Default.Email, null) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -158,7 +162,7 @@ fun LoginScreen(
 
                     OutlinedTextField(
                         value = password, onValueChange = { password = it },
-                        label = { Text("Пароль") },
+                        label = { Text(stringResource(R.string.label_password)) },
                         leadingIcon = { Icon(Icons.Default.Lock, null) },
                         trailingIcon = {
                             IconButton(onClick = { passVisible = !passVisible }) {
@@ -203,20 +207,22 @@ fun LoginScreen(
                                 strokeWidth = 2.dp,
                                 color = MaterialTheme.colorScheme.onPrimary)
                         else
-                            Text("Войти", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                            Text(stringResource(R.string.btn_login),
+                                fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     }
 
                     Spacer(Modifier.height(4.dp))
                     TextButton(
                         onClick  = onForgotPassword,
                         modifier = Modifier.align(Alignment.End)
-                    ) { Text("Забыли пароль?", style = MaterialTheme.typography.bodySmall) }
+                    ) { Text(stringResource(R.string.link_forgot_password),
+                        style = MaterialTheme.typography.bodySmall) }
 
                     Spacer(Modifier.height(8.dp))
                     TextButton(
                         onClick  = onNavigateToRegister,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
-                    ) { Text("Нет аккаунта? Зарегистрироваться") }
+                    ) { Text(stringResource(R.string.link_register)) }
                 }
             }
 
@@ -248,7 +254,7 @@ fun RegisterScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Регистрация") },
+                title = { Text(stringResource(R.string.register_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -265,26 +271,28 @@ fun RegisterScreen(
             .verticalScroll(rememberScrollState())
             .padding(24.dp)) {
 
-            Text("Создайте аккаунт ЕВА",
+            Text(stringResource(R.string.register_subtitle),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
 
             OutlinedTextField(value = fullName, onValueChange = { fullName = it },
-                label = { Text("ФИО") }, leadingIcon = { Icon(Icons.Default.Person, null) },
+                label = { Text(stringResource(R.string.label_full_name)) },
+                leadingIcon = { Icon(Icons.Default.Person, null) },
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(value = email, onValueChange = { email = it },
-                label = { Text("Email") }, leadingIcon = { Icon(Icons.Default.Email, null) },
+                label = { Text(stringResource(R.string.label_email)) },
+                leadingIcon = { Icon(Icons.Default.Email, null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(value = phone, onValueChange = { phone = it },
-                label = { Text("Телефон (необязательно)") },
+                label = { Text(stringResource(R.string.label_phone_optional)) },
                 leadingIcon = { Icon(Icons.Default.Phone, null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
@@ -292,7 +300,7 @@ fun RegisterScreen(
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(value = password, onValueChange = { password = it },
-                label = { Text("Пароль (мин. 8 символов)") },
+                label = { Text(stringResource(R.string.label_password_min)) },
                 leadingIcon = { Icon(Icons.Default.Lock, null) },
                 trailingIcon = {
                     IconButton(onClick = { passVisible = !passVisible }) {
@@ -308,14 +316,15 @@ fun RegisterScreen(
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(value = confirmPassword, onValueChange = { confirmPassword = it },
-                label = { Text("Повторите пароль") },
+                label = { Text(stringResource(R.string.label_confirm_password)) },
                 leadingIcon = { Icon(Icons.Default.Lock, null) },
                 visualTransformation = if (passVisible) VisualTransformation.None
                 else PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                 isError = !passwordsMatch,
                 supportingText = if (!passwordsMatch) {
-                    { Text("Пароли не совпадают", color = MaterialTheme.colorScheme.error) }
+                    { Text(stringResource(R.string.error_passwords_mismatch),
+                        color = MaterialTheme.colorScheme.error) }
                 } else null,
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))
@@ -361,7 +370,8 @@ fun RegisterScreen(
                         strokeWidth = 2.dp,
                         color = MaterialTheme.colorScheme.onPrimary)
                 else
-                    Text("Создать аккаунт", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.btn_create_account),
+                        fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }
@@ -414,7 +424,7 @@ fun ForgotPasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Восстановление пароля") },
+                title = { Text(stringResource(R.string.forgot_password_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
@@ -436,10 +446,11 @@ fun ForgotPasswordScreen(
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(16.dp))
-            Text("Забыли пароль?", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.forgot_password_heading),
+                fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(8.dp))
             Text(
-                "Введите email, привязанный к аккаунту. Мы пришлём инструкцию по сбросу пароля.",
+                stringResource(R.string.forgot_password_description),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -447,7 +458,7 @@ fun ForgotPasswordScreen(
 
             OutlinedTextField(
                 value = email, onValueChange = { email = it },
-                label = { Text("Email") },
+                label = { Text(stringResource(R.string.label_email)) },
                 leadingIcon = { Icon(Icons.Default.Email, null) },
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                 singleLine = true,
@@ -479,7 +490,7 @@ fun ForgotPasswordScreen(
                     shape = RoundedCornerShape(10.dp)
                 ) {
                     Text(
-                        "Инструкция отправлена на $email",
+                        stringResource(R.string.forgot_password_success, email),
                         modifier = Modifier.padding(12.dp),
                         color = MaterialTheme.colorScheme.onPrimaryContainer
                     )
@@ -497,7 +508,8 @@ fun ForgotPasswordScreen(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 else
-                    Text("Отправить", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.btn_send),
+                        fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }
@@ -550,7 +562,7 @@ fun ResetPasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Новый пароль") },
+                title = { Text(stringResource(R.string.reset_password_screen_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
@@ -572,12 +584,13 @@ fun ResetPasswordScreen(
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary)
             Spacer(Modifier.height(16.dp))
-            Text("Установите новый пароль", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Text(stringResource(R.string.reset_password_heading),
+                fontSize = 22.sp, fontWeight = FontWeight.Bold)
             Spacer(Modifier.height(28.dp))
 
             OutlinedTextField(
                 value = newPassword, onValueChange = { newPassword = it },
-                label = { Text("Новый пароль") },
+                label = { Text(stringResource(R.string.label_new_password)) },
                 leadingIcon  = { Icon(Icons.Default.Lock, null) },
                 trailingIcon = {
                     IconButton(onClick = { passVisible = !passVisible }) {
@@ -596,11 +609,11 @@ fun ResetPasswordScreen(
 
             OutlinedTextField(
                 value = confirmPassword, onValueChange = { confirmPassword = it },
-                label = { Text("Повторите пароль") },
+                label = { Text(stringResource(R.string.label_confirm_password)) },
                 leadingIcon = { Icon(Icons.Default.Lock, null) },
                 isError = !passwordsMatch,
                 supportingText = if (!passwordsMatch) {
-                    { Text("Пароли не совпадают") }
+                    { Text(stringResource(R.string.error_passwords_mismatch)) }
                 } else null,
                 visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
@@ -637,7 +650,8 @@ fun ResetPasswordScreen(
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
                         strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
                 else
-                    Text("Сохранить пароль", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+                    Text(stringResource(R.string.btn_save_password),
+                        fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }

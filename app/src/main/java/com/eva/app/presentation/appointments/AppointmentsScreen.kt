@@ -15,11 +15,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.repository.AppointmentRepository
 import com.eva.app.util.ErrorMapper
@@ -113,9 +115,9 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
         Column(modifier = Modifier.padding(padding).fillMaxSize()) {
             TabRow(selectedTabIndex = tab) {
                 Tab(selected = tab == 0, onClick = { tab = 0 },
-                    text = { Text("Предстоящие (${upcoming.size})") })
+                    text = { Text(stringResource(R.string.tab_upcoming, upcoming.size)) })
                 Tab(selected = tab == 1, onClick = { tab = 1 },
-                    text = { Text("Прошедшие (${past.size})") })
+                    text = { Text(stringResource(R.string.tab_past, past.size)) })
             }
 
             val list = if (tab == 0) upcoming else past
@@ -137,7 +139,9 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
                                     null, modifier = Modifier.size(64.dp),
                                     tint = MaterialTheme.colorScheme.onSurfaceVariant)
                                 Spacer(Modifier.height(12.dp))
-                                Text(if (tab == 0) "Нет предстоящих записей" else "Нет прошедших записей",
+                                Text(
+                                    if (tab == 0) stringResource(R.string.appointments_upcoming_empty)
+                                    else stringResource(R.string.appointments_past_empty),
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
                         }
@@ -162,7 +166,6 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
 
-    // Проверка — менее 24 часов до приёма?
     val isWithin24h = remember(a.slotDate, a.slotTime) {
         runCatching {
             val slotDt = LocalDate.parse(a.slotDate).atTime(LocalTime.parse(a.slotTime))
@@ -173,10 +176,11 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text("Отменить запись?") },
+            title = { Text(stringResource(R.string.appointment_cancel_dialog_title)) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Запись к ${a.doctorName} на ${formatDate(a.slotDate)} будет отменена.")
+                    Text(stringResource(R.string.appointment_cancel_dialog_text,
+                        a.doctorName, formatDate(a.slotDate)))
                     if (isWithin24h) {
                         Card(colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.errorContainer)) {
@@ -186,7 +190,7 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                                     tint = MaterialTheme.colorScheme.error,
                                     modifier = Modifier.size(18.dp))
                                 Spacer(Modifier.width(8.dp))
-                                Text("До приёма менее 24 часов. Возможен отказ в отмене.",
+                                Text(stringResource(R.string.appointment_cancel_within_24h),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onErrorContainer)
                             }
@@ -198,11 +202,13 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                 Button(onClick = { showCancelDialog = false; onCancel() },
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.error)) {
-                    Text("Отменить запись")
+                    Text(stringResource(R.string.btn_cancel_appointment))
                 }
             },
             dismissButton = {
-                TextButton(onClick = { showCancelDialog = false }) { Text("Назад") }
+                TextButton(onClick = { showCancelDialog = false }) {
+                    Text(stringResource(R.string.btn_back))
+                }
             }
         )
     }
@@ -213,7 +219,6 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
         elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            // Шапка карточки
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f)) {
@@ -230,26 +235,32 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
             Spacer(Modifier.height(10.dp))
 
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                DetailRow(Icons.Default.CalendarMonth, "Дата", formatDate(a.slotDate))
-                DetailRow(Icons.Default.Schedule, "Время", formatTime(a.slotTime))
-                DetailRow(Icons.Default.Timer, "Длит.", "${a.durationMinutes} мин")
+                DetailRow(Icons.Default.CalendarMonth,
+                    stringResource(R.string.label_date), formatDate(a.slotDate))
+                DetailRow(Icons.Default.Schedule,
+                    stringResource(R.string.label_time), formatTime(a.slotTime))
+                DetailRow(Icons.Default.Timer,
+                    stringResource(R.string.appointment_detail_duration_label),
+                    stringResource(R.string.duration_minutes, a.durationMinutes))
             }
 
-            // Раскрытая часть
             if (expanded) {
                 Spacer(Modifier.height(10.dp))
                 HorizontalDivider()
                 Spacer(Modifier.height(10.dp))
 
-                DetailRow(Icons.Default.LocalHospital, "Клиника", a.clinicName)
+                DetailRow(Icons.Default.LocalHospital,
+                    stringResource(R.string.label_clinic), a.clinicName)
                 Spacer(Modifier.height(6.dp))
-                DetailRow(Icons.Default.LocationOn, "Адрес", a.clinicAddress)
+                DetailRow(Icons.Default.LocationOn,
+                    stringResource(R.string.label_address), a.clinicAddress)
 
                 a.notes?.let {
                     Spacer(Modifier.height(10.dp))
                     HorizontalDivider()
                     Column {
-                        Text("📝 Примечание", fontWeight = FontWeight.SemiBold,
+                        Text(stringResource(R.string.appointment_detail_note),
+                            fontWeight = FontWeight.SemiBold,
                             style = MaterialTheme.typography.labelLarge,
                             color = MaterialTheme.colorScheme.primary)
                         Spacer(Modifier.height(4.dp))
@@ -257,7 +268,6 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                     }
                 }
 
-                // Заключение врача
                 if (a.status == "completed") {
                     Spacer(Modifier.height(10.dp))
                     HorizontalDivider()
@@ -270,7 +280,8 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                                     tint = MaterialTheme.colorScheme.secondary,
                                     modifier = Modifier.size(16.dp))
                                 Spacer(Modifier.width(6.dp))
-                                Text("Заключение врача", fontWeight = FontWeight.SemiBold,
+                                Text(stringResource(R.string.appointment_detail_conclusion),
+                                    fontWeight = FontWeight.SemiBold,
                                     style = MaterialTheme.typography.labelLarge,
                                     color = MaterialTheme.colorScheme.secondary)
                             }
@@ -280,7 +291,7 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer)
                             } else {
-                                Text("Заключение ещё не добавлено",
+                                Text(stringResource(R.string.appointment_conclusion_empty),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
                             }
@@ -288,12 +299,11 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                     }
                 }
 
-                Text("Создано: ${formatDate(a.createdAt)}",
+                Text(stringResource(R.string.appointment_created, formatDate(a.createdAt)),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     modifier = Modifier.padding(top = 8.dp))
 
-                // Кнопка отмены
                 if (a.status == "scheduled") {
                     Spacer(Modifier.height(10.dp))
                     OutlinedButton(
@@ -305,12 +315,11 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
                     ) {
                         Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp))
                         Spacer(Modifier.width(6.dp))
-                        Text("Отменить запись")
+                        Text(stringResource(R.string.btn_cancel_appointment))
                     }
                 }
             }
 
-            // Индикатор раскрытия
             Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 Icon(
                     if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
@@ -323,9 +332,9 @@ fun AppointmentCard(a: AppointmentResponse, onCancel: () -> Unit) {
 @Composable
 fun StatusChip(status: String) {
     val (color, label) = when (status) {
-        "scheduled"  -> Color(0xFF1565C0) to "Запланирован"
-        "completed"  -> Color(0xFF2E7D32) to "Завершена"
-        "cancelled"  -> Color(0xFFB71C1C) to "Отменена"
+        "scheduled"  -> Color(0xFF1565C0) to stringResource(R.string.appointment_status_scheduled)
+        "completed"  -> Color(0xFF2E7D32) to stringResource(R.string.appointment_status_completed)
+        "cancelled"  -> Color(0xFFB71C1C) to stringResource(R.string.appointment_status_cancelled)
         else         -> MaterialTheme.colorScheme.onSurfaceVariant to status
     }
     Surface(shape = RoundedCornerShape(20.dp), color = color.copy(alpha = 0.12f)) {

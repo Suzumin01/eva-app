@@ -12,11 +12,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.eva.app.R
 import com.eva.app.data.api.ClinicResponse
 import com.eva.app.data.api.SpecializationResponse
 import com.eva.app.data.repository.SpecializationRepository
@@ -35,12 +38,15 @@ class ClinicsViewModel @Inject constructor(
     val clinics = _clinics.asStateFlow()
     private val _isLoading = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
+    private val _loadError = MutableStateFlow<String?>(null)
+    val loadError = _loadError.asStateFlow()
 
     init {
         viewModelScope.launch {
             _isLoading.value = true
             when (val r = clinicRepository.getClinics()) {
                 is Resource.Success -> _clinics.value = r.data
+                is Resource.Error   -> _loadError.value = r.message ?: "Ошибка загрузки"
                 else -> {}
             }
             _isLoading.value = false
@@ -59,18 +65,42 @@ fun ClinicsScreen(
 ) {
     val clinics   by viewModel.clinics.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
+    val loadError by viewModel.loadError.collectAsState()
+    val snackbar  = remember { SnackbarHostState() }
 
-    Scaffold(topBar = {
-        TopAppBar(title = { Text("Клиники") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary,
-                titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                navigationIconContentColor = MaterialTheme.colorScheme.onPrimary))
-    }) { padding ->
-        if (isLoading) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-        else LazyColumn(modifier = Modifier.padding(padding), contentPadding = PaddingValues(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            items(clinics) { clinic -> ClinicCard(clinic = clinic, onClick = { onClinicClick(clinic.clinicId) }) }
+    LaunchedEffect(loadError) {
+        loadError?.let { snackbar.showSnackbar(it) }
+    }
+
+    Scaffold(
+        snackbarHost = { SnackbarHost(snackbar) },
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.clinics_screen_title)) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
+                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+            )
+        }
+    ) { padding ->
+        if (isLoading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier.padding(padding),
+                contentPadding = PaddingValues(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                items(clinics) { clinic ->
+                    ClinicCard(clinic = clinic, onClick = { onClinicClick(clinic.clinicId) })
+                }
+            }
         }
     }
 }
@@ -83,7 +113,8 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
             Surface(shape = RoundedCornerShape(14.dp),
                 color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(52.dp)) {
                 Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.LocalHospital, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Default.LocalHospital, null,
+                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(28.dp))
                 }
             }
             Spacer(Modifier.width(12.dp))
@@ -106,7 +137,6 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
-                // Рейтинг и количество врачей
                 Spacer(Modifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -122,20 +152,22 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
                         }
                     }
                     if (clinic.doctorsCount > 0) {
-                        Text("${clinic.doctorsCount} врачей",
+                        Text(
+                            pluralStringResource(R.plurals.doctors_count,
+                                clinic.doctorsCount, clinic.doctorsCount),
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
             }
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.ChevronRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
 
 data class SpecItem(val id: Int, val name: String, val desc: String, val icon: ImageVector)
 
-/** Иконки хранятся здесь (Compose-зависимость), данные берём из API или из локального fallback */
 private val specIcons = mapOf(
     1 to Icons.Default.MedicalServices,
     2 to Icons.Default.Favorite,
@@ -181,23 +213,32 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
     val isLoading by vm.isLoading.collectAsState()
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text("Специализации") },
-            navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
-            colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.primary,
+        TopAppBar(
+            title = { Text(stringResource(R.string.specializations_screen_title)) },
+            navigationIcon = {
+                IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+            },
+            colors = TopAppBarDefaults.topAppBarColors(
+                containerColor = MaterialTheme.colorScheme.primary,
                 titleContentColor = MaterialTheme.colorScheme.onPrimary,
                 navigationIconContentColor = MaterialTheme.colorScheme.onPrimary))
     }) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
         } else {
             LazyColumn(modifier = Modifier.padding(padding), contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(specs) { s ->
                     Card(modifier = Modifier.fillMaxWidth().clickable { onSpecClick(s.id) },
-                        shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(2.dp)) {
-                        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                        shape = RoundedCornerShape(16.dp),
+                        elevation = CardDefaults.cardElevation(2.dp)) {
+                        Row(modifier = Modifier.padding(16.dp),
+                            verticalAlignment = Alignment.CenterVertically) {
                             Surface(shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.secondaryContainer, modifier = Modifier.size(48.dp)) {
+                                color = MaterialTheme.colorScheme.secondaryContainer,
+                                modifier = Modifier.size(48.dp)) {
                                 Box(contentAlignment = Alignment.Center) {
                                     Icon(s.icon, null, tint = MaterialTheme.colorScheme.secondary)
                                 }
@@ -208,7 +249,8 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
                                 Text(s.desc, style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                             }
-                            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Icon(Icons.Default.ChevronRight, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                 }

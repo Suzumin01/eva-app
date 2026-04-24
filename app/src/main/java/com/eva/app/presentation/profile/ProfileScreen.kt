@@ -21,6 +21,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -30,6 +31,7 @@ import androidx.lifecycle.viewModelScope
 import coil.compose.AsyncImage
 import coil.request.ImageRequest
 import com.eva.app.BuildConfig
+import com.eva.app.R
 import com.eva.app.data.api.UserProfileResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
@@ -46,14 +48,16 @@ class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val tokenManager: TokenManager
 ) : ViewModel() {
-    private val _profile   = MutableStateFlow<UserProfileResponse?>(null)
+    private val _profile        = MutableStateFlow<UserProfileResponse?>(null)
     val profile = _profile.asStateFlow()
-    private val _isLoading = MutableStateFlow(false)
+    private val _isLoading      = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
-    private val _loggedOut = MutableStateFlow(false)
+    private val _loggedOut      = MutableStateFlow(false)
     val loggedOut = _loggedOut.asStateFlow()
     private val _photoUploading = MutableStateFlow(false)
     val photoUploading = _photoUploading.asStateFlow()
+    private val _photoError     = MutableStateFlow<String?>(null)
+    val photoError = _photoError.asStateFlow()
 
     val cachedName = tokenManager.userName
         .stateIn(viewModelScope, SharingStarted.Eagerly, null)
@@ -77,17 +81,23 @@ class ProfileViewModel @Inject constructor(
     fun uploadPhoto(uri: Uri, context: Context) {
         viewModelScope.launch {
             _photoUploading.value = true
+            _photoError.value = null
             val file = uriToTempFile(uri, context)
             if (file != null) {
-                when (authRepository.uploadPhoto(file)) {
-                    is Resource.Success<*> -> loadProfile()
+                when (val r = authRepository.uploadPhoto(file)) {
+                    is Resource.Success -> loadProfile()
+                    is Resource.Error   -> _photoError.value = r.message ?: "Ошибка загрузки фото"
                     else -> {}
                 }
                 file.delete()
+            } else {
+                _photoError.value = "Не удалось прочитать файл"
             }
             _photoUploading.value = false
         }
     }
+
+    fun clearPhotoError() { _photoError.value = null }
 
     fun logout() {
         viewModelScope.launch {
@@ -118,7 +128,9 @@ fun ProfileScreen(
     val loggedOut      by viewModel.loggedOut.collectAsState()
     val cachedName     by viewModel.cachedName.collectAsState()
     val photoUploading by viewModel.photoUploading.collectAsState()
+    val photoError     by viewModel.photoError.collectAsState()
     var showLogoutDialog by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
     val photoPicker = rememberLauncherForActivityResult(
@@ -126,120 +138,130 @@ fun ProfileScreen(
     ) { uri -> uri?.let { viewModel.uploadPhoto(it, context) } }
 
     LaunchedEffect(loggedOut) { if (loggedOut) onLogout() }
+    LaunchedEffect(photoError) {
+        photoError?.let { snackbar.showSnackbar(it); viewModel.clearPhotoError() }
+    }
 
     val displayName  = profile?.fullName ?: cachedName
     val displayEmail = profile?.email
-    // BASE_URL = "http://host:port/api/v1/" → нужен только хост, avatarUrl уже содержит /api/v1/...
     val serverRoot   = BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1")
     val avatarUrl    = profile?.avatarUrl?.let { "$serverRoot$it" }
 
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text("Выйти из аккаунта?") },
-            text  = { Text("Вы будете перенаправлены на экран входа.") },
+            title = { Text(stringResource(R.string.profile_logout_dialog_title)) },
+            text  = { Text(stringResource(R.string.profile_logout_dialog_text)) },
             confirmButton = {
-                Button(onClick = { showLogoutDialog = false; viewModel.logout() },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)) {
-                    Text("Выйти")
-                }
+                Button(
+                    onClick = { showLogoutDialog = false; viewModel.logout() },
+                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text(stringResource(R.string.btn_logout)) }
             },
             dismissButton = {
-                TextButton(onClick = { showLogoutDialog = false }) { Text("Отмена") }
+                TextButton(onClick = { showLogoutDialog = false }) {
+                    Text(stringResource(R.string.btn_cancel))
+                }
             }
         )
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Spacer(Modifier.height(16.dp))
+    Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(16.dp))
 
-        Box(contentAlignment = Alignment.BottomEnd) {
-            Surface(
-                shape  = CircleShape,
-                color  = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(96.dp)
-            ) {
-                if (avatarUrl != null) {
-                    AsyncImage(
-                        model = ImageRequest.Builder(context)
-                            .data(avatarUrl)
-                            .crossfade(true)
-                            .build(),
-                        contentDescription = "Аватар",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().clip(CircleShape)
-                    )
-                } else {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Person, null,
-                            modifier = Modifier.size(56.dp),
-                            tint = MaterialTheme.colorScheme.primary)
+            Box(contentAlignment = Alignment.BottomEnd) {
+                Surface(
+                    shape    = CircleShape,
+                    color    = MaterialTheme.colorScheme.primaryContainer,
+                    modifier = Modifier.size(96.dp)
+                ) {
+                    if (avatarUrl != null) {
+                        AsyncImage(
+                            model = ImageRequest.Builder(context)
+                                .data(avatarUrl)
+                                .crossfade(true)
+                                .build(),
+                            contentDescription = stringResource(R.string.profile_avatar_cd),
+                            contentScale       = ContentScale.Crop,
+                            modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                        )
+                    } else {
+                        Box(contentAlignment = Alignment.Center) {
+                            Icon(Icons.Default.Person, null,
+                                modifier = Modifier.size(56.dp),
+                                tint     = MaterialTheme.colorScheme.primary)
+                        }
+                    }
+                }
+                SmallFloatingActionButton(
+                    onClick        = { photoPicker.launch("image/*") },
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor   = MaterialTheme.colorScheme.onPrimary,
+                    modifier       = Modifier.size(30.dp)
+                ) {
+                    if (photoUploading) {
+                        CircularProgressIndicator(
+                            modifier    = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color       = MaterialTheme.colorScheme.onPrimary
+                        )
+                    } else {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
                     }
                 }
             }
-            SmallFloatingActionButton(
-                onClick = { photoPicker.launch("image/*") },
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor   = MaterialTheme.colorScheme.onPrimary,
-                modifier = Modifier.size(30.dp)
-            ) {
-                if (photoUploading) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                        color = MaterialTheme.colorScheme.onPrimary
-                    )
-                } else {
-                    Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
+            Spacer(Modifier.height(12.dp))
+
+            if (isLoading && displayName == null) {
+                CircularProgressIndicator(modifier = Modifier.size(24.dp))
+            } else {
+                displayName?.let {
+                    Text(it, fontSize = 22.sp, fontWeight = FontWeight.Bold)
+                }
+                displayEmail?.let {
+                    Text(it, style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+
+            Spacer(Modifier.height(28.dp))
+
+            ProfileActionCard(
+                icon     = Icons.Default.HealthAndSafety,
+                label    = stringResource(R.string.profile_menu_medical_card),
+                subtitle = stringResource(R.string.profile_menu_medical_card_sub),
+                color    = MaterialTheme.colorScheme.primaryContainer,
+                iconTint = MaterialTheme.colorScheme.primary,
+                onClick  = onOpenMedicalCard
+            )
+            Spacer(Modifier.height(10.dp))
+            ProfileActionCard(
+                icon     = Icons.Default.Settings,
+                label    = stringResource(R.string.profile_menu_settings),
+                subtitle = stringResource(R.string.profile_menu_settings_sub),
+                color    = MaterialTheme.colorScheme.secondaryContainer,
+                iconTint = MaterialTheme.colorScheme.secondary,
+                onClick  = onOpenSettings
+            )
+            Spacer(Modifier.height(10.dp))
+            ProfileActionCard(
+                icon     = Icons.Default.Logout,
+                label    = stringResource(R.string.profile_menu_logout),
+                subtitle = stringResource(R.string.profile_menu_logout_sub),
+                color    = MaterialTheme.colorScheme.errorContainer,
+                iconTint = MaterialTheme.colorScheme.error,
+                onClick  = { showLogoutDialog = true }
+            )
+            Spacer(Modifier.height(24.dp))
         }
-        Spacer(Modifier.height(12.dp))
-
-        if (isLoading && displayName == null) {
-            CircularProgressIndicator(modifier = Modifier.size(24.dp))
-        } else {
-            displayName?.let {
-                Text(it, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-            }
-            displayEmail?.let {
-                Text(it, style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-        }
-
-        Spacer(Modifier.height(28.dp))
-
-        ProfileActionCard(
-            icon     = Icons.Default.HealthAndSafety,
-            label    = "Медицинская карта",
-            subtitle = "История приёмов и AI-анализов",
-            color    = MaterialTheme.colorScheme.primaryContainer,
-            iconTint = MaterialTheme.colorScheme.primary,
-            onClick  = onOpenMedicalCard
-        )
-        Spacer(Modifier.height(10.dp))
-        ProfileActionCard(
-            icon     = Icons.Default.Settings,
-            label    = "Настройки",
-            subtitle = "Профиль, согласия, тема оформления",
-            color    = MaterialTheme.colorScheme.secondaryContainer,
-            iconTint = MaterialTheme.colorScheme.secondary,
-            onClick  = onOpenSettings
-        )
-        Spacer(Modifier.height(10.dp))
-        ProfileActionCard(
-            icon     = Icons.Default.Logout,
-            label    = "Выйти из аккаунта",
-            subtitle = "Вернуться на экран входа",
-            color    = MaterialTheme.colorScheme.errorContainer,
-            iconTint = MaterialTheme.colorScheme.error,
-            onClick  = { showLogoutDialog = true }
-        )
-        Spacer(Modifier.height(24.dp))
     }
 }
 
@@ -248,8 +270,11 @@ fun ProfileActionCard(
     icon: ImageVector, label: String, subtitle: String,
     color: Color, iconTint: Color, onClick: () -> Unit
 ) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(1.dp)) {
+    Card(
+        modifier  = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(1.dp)
+    ) {
         Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
             Surface(shape = RoundedCornerShape(12.dp), color = color, modifier = Modifier.size(48.dp)) {
                 Box(contentAlignment = Alignment.Center) {
