@@ -35,4 +35,8 @@ sealed class Screen(val route: String) {
     object MedicalCard       : Screen("medical_card")
     object Settings          : Screen("settings")
     object EditProfile       : Screen("edit_profile")
+    object ForgotPassword    : Screen("forgot_password")
+    object ResetPassword     : Screen("reset_password/{token}") {
+        fun createRoute(token: String) = "reset_password/$token"
+    }
 }

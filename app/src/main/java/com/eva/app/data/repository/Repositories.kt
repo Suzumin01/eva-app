@@ -115,6 +115,12 @@ class AuthRepository @Inject constructor(
         else Resource.Error("Ошибка удаления токена")
     }
 
+    suspend fun forgotPassword(email: String): Resource<ForgotPasswordResponse> =
+        safeApiCall { api.forgotPassword(ForgotPasswordRequest(email)) }
+
+    suspend fun resetPassword(token: String, newPassword: String): Resource<Map<String, String>> =
+        safeApiCall { api.resetPassword(ResetPasswordRequest(token, newPassword)) }
+
     suspend fun uploadPhoto(file: java.io.File): Resource<AvatarUrlResponse> {
         val reqFile = file.asRequestBody("image/*".toMediaType())
         val part    = MultipartBody.Part.createFormData("photo", file.name, reqFile)

@@ -26,6 +26,12 @@ interface EvaApi {
     @POST("auth/photo")
     suspend fun uploadPhoto(@Part photo: MultipartBody.Part): Response<AvatarUrlResponse>
 
+    @POST("auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<ForgotPasswordResponse>
+
+    @POST("auth/reset-password")
+    suspend fun resetPassword(@Body request: ResetPasswordRequest): Response<Map<String, String>>
+
     @GET("doctors")
     suspend fun getDoctors(
         @Query("specializationId") specializationId: Short? = null,

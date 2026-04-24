@@ -25,8 +25,10 @@ import com.eva.app.data.repository.AuthRepository
 import com.google.firebase.messaging.FirebaseMessaging
 import kotlinx.coroutines.Dispatchers
 import com.eva.app.presentation.appointments.AppointmentsScreen
+import com.eva.app.presentation.auth.ForgotPasswordScreen
 import com.eva.app.presentation.auth.LoginScreen
 import com.eva.app.presentation.auth.RegisterScreen
+import com.eva.app.presentation.auth.ResetPasswordScreen
 import com.eva.app.presentation.booking.BookingScreen
 import com.eva.app.presentation.clinic_detail.ClinicDetailScreen
 import com.eva.app.presentation.clinics.ClinicsScreen
@@ -232,12 +234,30 @@ fun EvaApp(
             composable(Screen.Login.route) {
                 LoginScreen(
                     onLoginSuccess = {
-                        // Промежуточный роут проверит consentShown из DataStore
                         navController.navigate(Screen.ConsentCheck.route) {
                             popUpTo(0) { inclusive = true }
                         }
                     },
-                    onNavigateToRegister = { navController.navigate(Screen.Register.route) }
+                    onNavigateToRegister = { navController.navigate(Screen.Register.route) },
+                    onForgotPassword = { navController.navigate(Screen.ForgotPassword.route) }
+                )
+            }
+            composable(Screen.ForgotPassword.route) {
+                ForgotPasswordScreen(
+                    onBack = { navController.popBackStack() },
+                    onTokenReceived = { token ->
+                        navController.navigate(Screen.ResetPassword.createRoute(token))
+                    }
+                )
+            }
+            composable(Screen.ResetPassword.route) { backStack ->
+                val token = backStack.arguments?.getString("token") ?: ""
+                ResetPasswordScreen(
+                    token = token,
+                    onSuccess = {
+                        navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+                    },
+                    onBack = { navController.popBackStack() }
                 )
             }
             composable(Screen.Register.route) {

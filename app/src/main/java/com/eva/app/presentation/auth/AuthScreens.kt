@@ -82,6 +82,7 @@ sealed class AuthState {
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
     onNavigateToRegister: () -> Unit,
+    onForgotPassword: () -> Unit = {},
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.loginState.collectAsState()
@@ -205,7 +206,13 @@ fun LoginScreen(
                             Text("Войти", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     }
 
-                    Spacer(Modifier.height(12.dp))
+                    Spacer(Modifier.height(4.dp))
+                    TextButton(
+                        onClick  = onForgotPassword,
+                        modifier = Modifier.align(Alignment.End)
+                    ) { Text("Забыли пароль?", style = MaterialTheme.typography.bodySmall) }
+
+                    Spacer(Modifier.height(8.dp))
                     TextButton(
                         onClick  = onNavigateToRegister,
                         modifier = Modifier.align(Alignment.CenterHorizontally)
@@ -355,6 +362,282 @@ fun RegisterScreen(
                         color = MaterialTheme.colorScheme.onPrimary)
                 else
                     Text("Создать аккаунт", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+sealed class ForgotPasswordState {
+    object Idle    : ForgotPasswordState()
+    object Loading : ForgotPasswordState()
+    data class Success(val resetToken: String?) : ForgotPasswordState()
+    data class Error(val message: String)        : ForgotPasswordState()
+}
+
+@HiltViewModel
+class ForgotPasswordViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _state = MutableStateFlow<ForgotPasswordState>(ForgotPasswordState.Idle)
+    val state = _state.asStateFlow()
+
+    fun requestReset(email: String) {
+        viewModelScope.launch {
+            _state.value = ForgotPasswordState.Loading
+            when (val r = authRepository.forgotPassword(email)) {
+                is Resource.Success<*> -> _state.value =
+                    ForgotPasswordState.Success((r.data as? com.eva.app.data.api.ForgotPasswordResponse)?.resetToken)
+                is Resource.Error      -> _state.value = ForgotPasswordState.Error(r.message)
+                else -> {}
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ForgotPasswordScreen(
+    onBack: () -> Unit,
+    onTokenReceived: (String) -> Unit,
+    viewModel: ForgotPasswordViewModel = hiltViewModel()
+) {
+    val state by viewModel.state.collectAsState()
+    var email by remember { mutableStateOf("") }
+
+    LaunchedEffect(state) {
+        if (state is ForgotPasswordState.Success) {
+            val token = (state as ForgotPasswordState.Success).resetToken
+            if (token != null) onTokenReceived(token)
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Восстановление пароля") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(32.dp))
+            Icon(Icons.Default.LockReset, null,
+                modifier = Modifier.size(72.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
+            Text("Забыли пароль?", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(8.dp))
+            Text(
+                "Введите email, привязанный к аккаунту. Мы пришлём инструкцию по сбросу пароля.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(Modifier.height(28.dp))
+
+            OutlinedTextField(
+                value = email, onValueChange = { email = it },
+                label = { Text("Email") },
+                leadingIcon = { Icon(Icons.Default.Email, null) },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            if (state is ForgotPasswordState.Error) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        (state as ForgotPasswordState.Error).message,
+                        modifier = Modifier.padding(10.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            if (state is ForgotPasswordState.Success &&
+                (state as ForgotPasswordState.Success).resetToken == null) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.primaryContainer),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        "Инструкция отправлена на $email",
+                        modifier = Modifier.padding(12.dp),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = { viewModel.requestReset(email.trim().lowercase()) },
+                enabled = email.isNotBlank() && state !is ForgotPasswordState.Loading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                if (state is ForgotPasswordState.Loading)
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                else
+                    Text("Отправить", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
+            }
+        }
+    }
+}
+
+sealed class ResetPasswordState {
+    object Idle    : ResetPasswordState()
+    object Loading : ResetPasswordState()
+    object Success : ResetPasswordState()
+    data class Error(val message: String) : ResetPasswordState()
+}
+
+@HiltViewModel
+class ResetPasswordViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+    private val _state = MutableStateFlow<ResetPasswordState>(ResetPasswordState.Idle)
+    val state = _state.asStateFlow()
+
+    fun resetPassword(token: String, newPassword: String) {
+        viewModelScope.launch {
+            _state.value = ResetPasswordState.Loading
+            when (val r = authRepository.resetPassword(token, newPassword)) {
+                is Resource.Success<*> -> _state.value = ResetPasswordState.Success
+                is Resource.Error      -> _state.value = ResetPasswordState.Error(r.message)
+                else -> {}
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ResetPasswordScreen(
+    token: String,
+    onSuccess: () -> Unit,
+    onBack: () -> Unit,
+    viewModel: ResetPasswordViewModel = hiltViewModel()
+) {
+    val state           by viewModel.state.collectAsState()
+    var newPassword     by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+    var passVisible     by remember { mutableStateOf(false) }
+    val passwordsMatch  = newPassword == confirmPassword || confirmPassword.isEmpty()
+
+    LaunchedEffect(state) {
+        if (state is ResetPasswordState.Success) onSuccess()
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Новый пароль") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, contentDescription = null)
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Spacer(Modifier.height(32.dp))
+            Icon(Icons.Default.Lock, null,
+                modifier = Modifier.size(72.dp),
+                tint = MaterialTheme.colorScheme.primary)
+            Spacer(Modifier.height(16.dp))
+            Text("Установите новый пароль", fontSize = 22.sp, fontWeight = FontWeight.Bold)
+            Spacer(Modifier.height(28.dp))
+
+            OutlinedTextField(
+                value = newPassword, onValueChange = { newPassword = it },
+                label = { Text("Новый пароль") },
+                leadingIcon  = { Icon(Icons.Default.Lock, null) },
+                trailingIcon = {
+                    IconButton(onClick = { passVisible = !passVisible }) {
+                        Icon(if (passVisible) Icons.Default.VisibilityOff
+                             else Icons.Default.Visibility, null)
+                    }
+                },
+                visualTransformation = if (passVisible) VisualTransformation.None
+                                       else PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value = confirmPassword, onValueChange = { confirmPassword = it },
+                label = { Text("Повторите пароль") },
+                leadingIcon = { Icon(Icons.Default.Lock, null) },
+                isError = !passwordsMatch,
+                supportingText = if (!passwordsMatch) {
+                    { Text("Пароли не совпадают") }
+                } else null,
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp)
+            )
+
+            if (state is ResetPasswordState.Error) {
+                Spacer(Modifier.height(10.dp))
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
+                    shape = RoundedCornerShape(10.dp)
+                ) {
+                    Text(
+                        (state as ResetPasswordState.Error).message,
+                        modifier = Modifier.padding(10.dp),
+                        color = MaterialTheme.colorScheme.onErrorContainer,
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            Button(
+                onClick = { viewModel.resetPassword(token, newPassword) },
+                enabled = newPassword.length >= 8 && passwordsMatch
+                       && confirmPassword.isNotBlank()
+                       && state !is ResetPasswordState.Loading,
+                modifier = Modifier.fillMaxWidth().height(52.dp),
+                shape = RoundedCornerShape(14.dp)
+            ) {
+                if (state is ResetPasswordState.Loading)
+                    CircularProgressIndicator(modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp, color = MaterialTheme.colorScheme.onPrimary)
+                else
+                    Text("Сохранить пароль", fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
             }
         }
     }

@@ -51,6 +51,18 @@ data class UserProfileResponse(
 
 data class AvatarUrlResponse(val avatarUrl: String)
 
+data class ForgotPasswordRequest(val email: String)
+
+data class ForgotPasswordResponse(
+    val message: String,
+    val resetToken: String? = null
+)
+
+data class ResetPasswordRequest(
+    val token: String,
+    val newPassword: String
+)
+
 data class UpdateProfileRequest(
     val fullName: String?,
     val phone: String?,
