@@ -25,7 +25,6 @@ import androidx.navigation.navArgument
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
 import com.google.firebase.messaging.FirebaseMessaging
-import kotlinx.coroutines.Dispatchers
 import com.eva.app.presentation.appointments.AppointmentsScreen
 import com.eva.app.presentation.auth.ForgotPasswordScreen
 import com.eva.app.presentation.auth.LoginScreen
@@ -59,8 +58,10 @@ import com.eva.app.presentation.symptoms.SymptomsViewModel
 import com.eva.app.ui.theme.EvaTheme
 import dagger.hilt.android.AndroidEntryPoint
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 @AndroidEntryPoint
@@ -145,10 +146,14 @@ fun EvaApp(
     val currentEntry  by navController.currentBackStackEntryAsState()
     val currentRoute  = currentEntry?.destination?.route
 
-    // Разлогин при истечении JWT — сервер вернул 401, интерсептор вызвал emitUnauthorized
+    // Разлогин при истечении JWT — сервер вернул 401, интерсептор вызвал emitUnauthorized.
+    // withContext(Main) гарантирует выполнение навигации на main thread даже если
+    // emitUnauthorized() вызван из OkHttp-треда (иначе LifecycleRegistry падает).
     LaunchedEffect(Unit) {
         tokenManager.unauthorizedEvent.collect {
-            navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+            withContext(Dispatchers.Main) {
+                navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
+            }
         }
     }
 

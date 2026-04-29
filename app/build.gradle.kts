@@ -17,7 +17,7 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "com.eva.app.HiltTestRunner"
 
         // URL бэкенда — для эмулятора 10.0.2.2 = localhost хоста
         buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
@@ -114,6 +114,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    // Hilt testing support
+    androidTestImplementation("com.google.dagger:hilt-android-testing:2.50")
+    kaptAndroidTest("com.google.dagger:hilt-android-compiler:2.50")
+    // GrantPermissionRule
+    androidTestImplementation("androidx.test:rules:1.5.0")
 }
 
 kapt {

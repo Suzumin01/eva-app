@@ -76,6 +76,22 @@ MainActivity.kt         ← NavController, bottom navigation, FCM deep links
 - **DataStore** — хранение токенов и настроек
 - **Firebase Messaging** — push-уведомления
 
+## Тестирование
+
+Инструментальные тесты Espresso/Compose (11 тестов: T01–T06 чистый UI, T07–T10 E2E с бэкендом):
+
+```bash
+# Требуется запущенный эмулятор и бэкенд (для T07–T10)
+$env:JAVA_HOME="C:\Users\nikit\.jdks\ms-17.0.15"; .\gradlew connectedAndroidTest
+# Результат: 11/11 passed ✅
+```
+
+Тестовый аккаунт: `testeva@mail.ru` / `Test1234!` (должен быть зарегистрирован в БД).
+
+Файлы тестов:
+- `app/src/androidTest/java/com/eva/app/EvaUiTest.kt` — 11 тест-кейсов
+- `app/src/androidTest/java/com/eva/app/HiltTestRunner.kt` — Hilt-совместимый test runner
+
 ## Push-уведомления
 
 FCM-токен регистрируется при входе (`POST /auth/fcm-token`).  
