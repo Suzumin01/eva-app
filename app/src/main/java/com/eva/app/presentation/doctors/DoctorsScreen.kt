@@ -1,11 +1,20 @@
 package com.eva.app.presentation.doctors
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.text.style.TextOverflow
+import com.eva.app.presentation.components.AnimatedListItem
+import com.eva.app.presentation.components.DoctorCardSkeleton
+import com.eva.app.presentation.components.IconCircle
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
@@ -13,6 +22,7 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -22,9 +32,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
 import com.eva.app.data.api.DoctorResponse
+import com.eva.app.data.repository.ClinicRepository
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.data.repository.SpecializationRepository
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -36,7 +48,8 @@ private const val PAGE_SIZE = 20
 @HiltViewModel
 class DoctorsViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository,
-    private val specializationRepository: SpecializationRepository
+    private val specializationRepository: SpecializationRepository,
+    private val clinicRepository: ClinicRepository
 ) : ViewModel() {
     private val _doctors       = MutableStateFlow<List<DoctorResponse>>(emptyList())
     val doctors = _doctors.asStateFlow()
@@ -61,6 +74,8 @@ class DoctorsViewModel @Inject constructor(
 
     private val _specializations = MutableStateFlow(listOf<Pair<Int?, String>>(null to "Все"))
     val specializations = _specializations.asStateFlow()
+    private val _clinics = MutableStateFlow(listOf<Pair<Int?, String>>(null to "Все клиники"))
+    val clinics = _clinics.asStateFlow()
 
     private var currentOffset = 0L
 
@@ -74,13 +89,26 @@ class DoctorsViewModel @Inject constructor(
                 else -> {}
             }
         }
+        viewModelScope.launch {
+            when (val result = clinicRepository.getClinics()) {
+                is Resource.Success -> {
+                    _clinics.value = listOf(null to "Все клиники") +
+                        result.data.map { it.clinicId to it.clinicName }
+                }
+                else -> {}
+            }
+        }
     }
+
+    private var initialized = false
 
     fun init(
         preselectedSpecId: Int?,
         preselectedClinicId: Int? = null,
         clinicName: String? = null
     ) {
+        if (initialized) return
+        initialized = true
         if (preselectedSpecId != null && preselectedSpecId != -1)
             _selectedSpec.value = preselectedSpecId
         if (preselectedClinicId != null && preselectedClinicId != -1) {
@@ -92,10 +120,11 @@ class DoctorsViewModel @Inject constructor(
 
     fun setSearch(query: String) { _searchQuery.value = query }
     fun setSpec(specId: Int?) { _selectedSpec.value = specId }
-    fun clearClinicFilter() {
-        _selectedClinicId.value   = null
-        _selectedClinicName.value = null
+    fun setClinic(clinicId: Int?) {
+        _selectedClinicId.value   = clinicId
+        _selectedClinicName.value = _clinics.value.firstOrNull { it.first == clinicId }?.second
     }
+    fun clearClinicFilter() { setClinic(null) }
 
     @OptIn(FlowPreview::class)
     fun setupSearch() {
@@ -184,6 +213,7 @@ fun DoctorsScreen(
     val selectedClinicId   by viewModel.selectedClinicId.collectAsState()
     val selectedClinicName by viewModel.selectedClinicName.collectAsState()
     val specializations    by viewModel.specializations.collectAsState()
+    val clinics            by viewModel.clinics.collectAsState()
     val listState         = rememberLazyListState()
     val snackbar          = remember { SnackbarHostState() }
 
@@ -203,14 +233,12 @@ fun DoctorsScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.doctors_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -232,81 +260,92 @@ fun DoctorsScreen(
                 singleLine = true
             )
 
-            if (selectedClinicId != null) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                        .padding(bottom = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    FilterChip(
-                        selected = true,
-                        onClick  = {},
-                        label    = {
-                            Text(selectedClinicName
-                                ?: stringResource(R.string.doctor_clinic_fallback, selectedClinicId!!))
-                        },
-                        leadingIcon = {
-                            Icon(Icons.Default.LocalHospital, null, Modifier.size(16.dp))
-                        },
-                        trailingIcon = {
-                            IconButton(
-                                onClick  = { viewModel.clearClinicFilter() },
-                                modifier = Modifier.size(18.dp)
-                            ) {
-                                Icon(Icons.Default.Close,
-                                    stringResource(R.string.doctors_filter_remove),
-                                    Modifier.size(14.dp))
-                            }
-                        }
-                    )
-                }
-            }
-
-            var specExpanded by remember { mutableStateOf(false) }
-            val allLabel = stringResource(R.string.doctors_filter_all)
-            val selectedSpecName = if (selectedSpec == null) allLabel
-                else specializations.firstOrNull { it.first == selectedSpec }?.second
-                    ?: stringResource(R.string.doctors_filter_all_specs)
-            ExposedDropdownMenuBox(
-                expanded  = specExpanded,
-                onExpandedChange = { specExpanded = !specExpanded },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 4.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                OutlinedTextField(
-                    value         = selectedSpecName,
-                    onValueChange = {},
-                    readOnly      = true,
-                    label         = { Text(stringResource(R.string.doctors_filter_spec_label)) },
-                    trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(specExpanded) },
-                    modifier      = Modifier.menuAnchor().fillMaxWidth(),
-                    shape         = RoundedCornerShape(14.dp),
-                    colors        = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
-                )
-                ExposedDropdownMenu(
-                    expanded = specExpanded,
-                    onDismissRequest = { specExpanded = false }
+                var specExpanded by remember { mutableStateOf(false) }
+                val allLabel = stringResource(R.string.doctors_filter_all)
+                val selectedSpecName = if (selectedSpec == null) allLabel
+                    else specializations.firstOrNull { it.first == selectedSpec }?.second
+                        ?: stringResource(R.string.doctors_filter_all_specs)
+                ExposedDropdownMenuBox(
+                    expanded         = specExpanded,
+                    onExpandedChange = { specExpanded = !specExpanded },
+                    modifier         = Modifier.weight(1f)
                 ) {
-                    specializations.forEach { (id, name) ->
-                        DropdownMenuItem(
-                            text    = { Text(if (id == null) allLabel else name) },
-                            onClick = {
-                                viewModel.setSpec(id)
-                                specExpanded = false
-                            },
-                            trailingIcon = if (selectedSpec == id) ({
-                                Icon(Icons.Default.Check, null,
-                                    tint = MaterialTheme.colorScheme.primary)
-                            }) else null
-                        )
+                    OutlinedTextField(
+                        value         = selectedSpecName,
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text(stringResource(R.string.doctors_filter_spec_label)) },
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(specExpanded) },
+                        modifier      = Modifier.menuAnchor().fillMaxWidth(),
+                        shape         = RoundedCornerShape(14.dp),
+                        colors        = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded         = specExpanded,
+                        onDismissRequest = { specExpanded = false }
+                    ) {
+                        specializations.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text    = { Text(if (id == null) allLabel else name) },
+                                onClick = { viewModel.setSpec(id); specExpanded = false },
+                                trailingIcon = if (selectedSpec == id) ({
+                                    Icon(Icons.Default.Check, null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }) else null
+                            )
+                        }
+                    }
+                }
+
+                var clinicExpanded by remember { mutableStateOf(false) }
+                val clinicAllLabel = stringResource(R.string.doctors_filter_clinic_all)
+                val selectedClinicLabel = if (selectedClinicId == null) clinicAllLabel
+                    else clinics.firstOrNull { it.first == selectedClinicId }?.second
+                        ?: selectedClinicName ?: clinicAllLabel
+                ExposedDropdownMenuBox(
+                    expanded         = clinicExpanded,
+                    onExpandedChange = { clinicExpanded = !clinicExpanded },
+                    modifier         = Modifier.weight(1f)
+                ) {
+                    OutlinedTextField(
+                        value         = selectedClinicLabel,
+                        onValueChange = {},
+                        readOnly      = true,
+                        label         = { Text(stringResource(R.string.doctors_filter_clinic_label)) },
+                        trailingIcon  = { ExposedDropdownMenuDefaults.TrailingIcon(clinicExpanded) },
+                        modifier      = Modifier.menuAnchor().fillMaxWidth(),
+                        shape         = RoundedCornerShape(14.dp),
+                        colors        = ExposedDropdownMenuDefaults.outlinedTextFieldColors()
+                    )
+                    ExposedDropdownMenu(
+                        expanded         = clinicExpanded,
+                        onDismissRequest = { clinicExpanded = false }
+                    ) {
+                        clinics.forEach { (id, name) ->
+                            DropdownMenuItem(
+                                text    = { Text(if (id == null) clinicAllLabel else name) },
+                                onClick = { viewModel.setClinic(id); clinicExpanded = false },
+                                trailingIcon = if (selectedClinicId == id) ({
+                                    Icon(Icons.Default.Check, null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }) else null
+                            )
+                        }
                     }
                 }
             }
 
             when {
-                isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                isLoading -> LazyColumn(
+                    modifier          = Modifier.fillMaxSize(),
+                    userScrollEnabled = false
+                ) {
+                    items(6) { DoctorCardSkeleton() }
                 }
                 else -> PullToRefreshBox(
                     isRefreshing = isRefreshing,
@@ -333,11 +372,12 @@ fun DoctorsScreen(
                     } else {
                         LazyColumn(
                             state = listState,
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(10.dp)
+                            modifier = Modifier.fillMaxSize()
                         ) {
-                            items(doctors, key = { it.doctorId }) { doctor ->
-                                DoctorCard(doctor = doctor, onClick = { onDoctor(doctor.doctorId) })
+                            itemsIndexed(doctors, key = { _, d -> d.doctorId }) { index, doctor ->
+                                AnimatedListItem(index = index) {
+                                    DoctorCard(doctor = doctor, onClick = { onDoctor(doctor.doctorId) })
+                                }
                             }
                             if (isLoadingMore) {
                                 item {
@@ -366,43 +406,97 @@ fun DoctorsScreen(
 
 @Composable
 fun DoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(14.dp),
-        elevation = CardDefaults.cardElevation(2.dp)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(52.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(30.dp))
-                }
+    Card(
+        onClick    = onClick,
+        modifier   = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp),
+        shape      = RoundedCornerShape(16.dp),
+        elevation  = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        colors     = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier          = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            // Аватар с рамкой primary-цвета
+            Box(
+                modifier         = Modifier
+                    .size(80.dp)
+                    .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
+                    .padding(4.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.primaryContainer),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    Icons.Default.Person, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(40.dp)
+                )
             }
-            Spacer(Modifier.width(14.dp))
-            Column(Modifier.weight(1f)) {
-                Text(doctor.fullName, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyLarge)
-                Text(doctor.specializationName, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(doctor.clinicName, style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+            Spacer(Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text     = doctor.fullName,
+                    style    = EvaType.cardTitle,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(Modifier.height(3.dp))
+                Text(
+                    text  = doctor.specializationName,
+                    style = EvaType.cardSub,
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Spacer(Modifier.height(10.dp))
+                Row(
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    doctor.experienceYears?.let { exp ->
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.MedicalServices, null,
+                                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                text  = "Стаж $exp лет",
+                                style = EvaType.cardMeta,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    doctor.rating?.toDoubleOrNull()?.let {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.Star, null,
+                                tint     = Color(0xFFFFC107),
+                                modifier = Modifier.size(13.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text(
+                                text  = doctor.rating,
+                                style = EvaType.cardMeta
+                            )
+                        }
+                    }
+                }
+                Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    doctor.rating?.let {
-                        Icon(Icons.Default.Star, null,
-                            tint = androidx.compose.ui.graphics.Color(0xFFFFC107),
-                            modifier = Modifier.size(12.dp))
-                        Text(" $it", style = MaterialTheme.typography.labelSmall)
-                        Spacer(Modifier.width(8.dp))
-                    }
-                    doctor.experienceYears?.let {
-                        Text(pluralStringResource(R.plurals.experience_years, it, it),
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    }
+                    Icon(Icons.Default.LocationOn, null,
+                        tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(13.dp))
+                    Spacer(Modifier.width(3.dp))
+                    Text(
+                        text     = doctor.clinicName,
+                        style    = EvaType.cardMeta,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
             }
-            Icon(Icons.Default.ChevronRight, null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
         }
     }
 }

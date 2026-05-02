@@ -1,6 +1,5 @@
 package com.eva.app.presentation.settings
 
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,13 +13,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
 import com.eva.app.data.local.TokenManager
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.SectionHeader
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -57,171 +57,221 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.settings_screen_title)) },
+                title = {
+                    Text(stringResource(R.string.profile_menu_settings),
+                        style = EvaType.cardTitle)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors       = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { padding ->
         Column(
-            modifier = Modifier.padding(padding).fillMaxSize()
-                .verticalScroll(rememberScrollState()).padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
-            SettingsSection(title = stringResource(R.string.settings_section_personal)) {
+            SettingsSection(stringResource(R.string.settings_section_personal)) {
                 SettingsNavRow(
                     icon     = Icons.Default.Person,
-                    label    = stringResource(R.string.settings_edit_profile),
+                    iconTint = Color(0xFF6A1B9A),
+                    title    = stringResource(R.string.settings_edit_profile),
                     subtitle = stringResource(R.string.settings_edit_profile_sub),
                     onClick  = onEditProfile
                 )
             }
 
-            SettingsSection(title = stringResource(R.string.settings_section_privacy)) {
-                ConsentSettingsRow(Icons.Default.MedicalServices,
-                    stringResource(R.string.settings_consent_medical), consentMedical)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                ConsentSettingsRow(Icons.Default.Shield,
-                    stringResource(R.string.settings_consent_privacy), consentPrivacy)
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                ConsentSettingsRow(Icons.Default.AutoAwesome,
-                    stringResource(R.string.settings_consent_ai), consentAi)
-                Spacer(Modifier.height(4.dp))
-                OutlinedButton(
+            SettingsSection(stringResource(R.string.settings_section_privacy)) {
+                ConsentRow(
+                    icon    = Icons.Default.MedicalServices,
+                    label   = stringResource(R.string.settings_consent_medical),
+                    granted = consentMedical
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                ConsentRow(
+                    icon    = Icons.Default.Shield,
+                    label   = stringResource(R.string.settings_consent_privacy),
+                    granted = consentPrivacy
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                ConsentRow(
+                    icon    = Icons.Default.AutoAwesome,
+                    label   = stringResource(R.string.settings_consent_ai),
+                    granted = consentAi
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                TextButton(
                     onClick  = onEditConsents,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape    = RoundedCornerShape(10.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp, vertical = 2.dp)
                 ) {
-                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                    Icon(Icons.Default.Edit, null, modifier = Modifier.size(15.dp))
                     Spacer(Modifier.width(6.dp))
                     Text(stringResource(R.string.settings_change_consents))
                 }
             }
 
-            SettingsSection(title = stringResource(R.string.settings_section_appearance)) {
+            SettingsSection(stringResource(R.string.settings_section_appearance)) {
                 Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+                    modifier              = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically
                 ) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Surface(shape = RoundedCornerShape(8.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(36.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(
-                                    if (darkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
-                                    null, tint = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
+                        Icon(
+                            if (darkTheme) Icons.Default.DarkMode else Icons.Default.LightMode,
+                            null,
+                            tint     = if (darkTheme) Color(0xFF5C6BC0) else Color(0xFFFFA726),
+                            modifier = Modifier.size(22.dp)
+                        )
+                        Spacer(Modifier.width(14.dp))
                         Column {
                             Text(stringResource(R.string.settings_dark_theme),
-                                fontWeight = FontWeight.Medium,
-                                style = MaterialTheme.typography.bodyMedium)
+                                style = EvaType.cardTitle)
                             Text(
                                 if (darkTheme) stringResource(R.string.settings_dark_theme_on)
                                 else stringResource(R.string.settings_dark_theme_off),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                style = EvaType.cardMeta,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                     Switch(checked = darkTheme, onCheckedChange = { viewModel.setDarkTheme(it) })
                 }
             }
 
-            SettingsSection(title = stringResource(R.string.settings_section_about)) {
-                SettingsInfoRow(Icons.Default.Info,
-                    stringResource(R.string.settings_about_version), "1.0.0")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                SettingsInfoRow(Icons.Default.Code,
-                    stringResource(R.string.settings_about_developer), "ЕВА Team")
-                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
-                SettingsInfoRow(Icons.Default.Description,
-                    stringResource(R.string.settings_about_license), "MIT")
+            SettingsSection(stringResource(R.string.settings_section_about)) {
+                AboutRow(
+                    icon  = Icons.Default.Info,
+                    label = stringResource(R.string.settings_about_version),
+                    value = stringResource(R.string.settings_about_version_value)
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                AboutRow(
+                    icon  = Icons.Default.Code,
+                    label = stringResource(R.string.settings_about_developer),
+                    value = stringResource(R.string.settings_about_developer_value)
+                )
+                HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                AboutRow(
+                    icon  = Icons.Default.Description,
+                    label = stringResource(R.string.settings_about_license),
+                    value = stringResource(R.string.settings_about_license_value)
+                )
             }
+
+            Spacer(Modifier.height(8.dp))
         }
     }
 }
 
 @Composable
-fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(title, style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary,
-            fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 6.dp, start = 4.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            Column(modifier = Modifier.padding(14.dp), content = content)
+private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        SectionHeader(title)
+        Card(
+            modifier  = Modifier.fillMaxWidth(),
+            shape     = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(content = content)
         }
     }
 }
 
 @Composable
-fun SettingsNavRow(
-    icon: ImageVector, label: String,
-    subtitle: String? = null, onClick: () -> Unit
+private fun SettingsNavRow(
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick).padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
+    TextButton(
+        onClick  = onClick,
+        modifier = Modifier.fillMaxWidth(),
+        shape    = RoundedCornerShape(16.dp)
     ) {
-        Surface(shape = RoundedCornerShape(8.dp),
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(36.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(18.dp))
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(label, fontWeight = FontWeight.Medium,
-                style = MaterialTheme.typography.bodyMedium)
-            subtitle?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall,
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null, tint = iconTint, modifier = Modifier.size(22.dp))
+            Spacer(Modifier.width(14.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(title,
+                    style = EvaType.cardTitle,
+                    color = MaterialTheme.colorScheme.onSurface)
+                Text(subtitle,
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
+            Icon(Icons.Default.ChevronRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
-        Icon(Icons.Default.ChevronRight, null,
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-fun ConsentSettingsRow(icon: ImageVector, label: String, granted: Boolean) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
+private fun ConsentRow(icon: ImageVector, label: String, granted: Boolean) {
+    Row(
+        modifier              = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.weight(1f)) {
-            Icon(icon, null, modifier = Modifier.size(15.dp),
-                tint = if (granted) MaterialTheme.colorScheme.primary
-                else MaterialTheme.colorScheme.onSurfaceVariant)
-            Spacer(Modifier.width(8.dp))
-            Text(label, style = MaterialTheme.typography.bodySmall)
+        verticalAlignment     = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier          = Modifier.weight(1f)
+        ) {
+            Icon(icon, null,
+                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.size(20.dp))
+            Spacer(Modifier.width(12.dp))
+            Text(label, style = EvaType.bodyText)
         }
-        Icon(if (granted) Icons.Default.CheckCircle else Icons.Default.Cancel, null,
-            tint = if (granted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
-            modifier = Modifier.size(18.dp))
+        Spacer(Modifier.width(8.dp))
+        Icon(
+            if (granted) Icons.Default.CheckCircle else Icons.Default.Cancel,
+            null,
+            tint     = if (granted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+            modifier = Modifier.size(22.dp)
+        )
     }
 }
 
 @Composable
-fun SettingsInfoRow(icon: ImageVector, label: String, value: String) {
-    Row(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(15.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(8.dp))
-        Text(label, style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.weight(1f))
-        Text(value, style = MaterialTheme.typography.bodySmall,
-            fontWeight = FontWeight.Medium)
+private fun AboutRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier          = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(icon, null,
+            tint     = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.size(20.dp))
+        Spacer(Modifier.width(12.dp))
+        Text(label,
+            style    = EvaType.bodyText,
+            modifier = Modifier.weight(1f))
+        Text(value,
+            style = EvaType.cardMeta,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

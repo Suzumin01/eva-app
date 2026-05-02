@@ -1,48 +1,54 @@
 package com.eva.app.presentation.clinic_detail
 
-import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
-import android.webkit.WebView
-import android.webkit.WebViewClient
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Call
+import androidx.compose.material.icons.filled.LocalHospital
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.PersonSearch
+import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.viewinterop.AndroidView
+import coil.compose.SubcomposeAsyncImage
+import com.eva.app.BuildConfig
 import com.eva.app.R
 import com.eva.app.data.api.ClinicResponse
+import com.eva.app.presentation.doctors.HeroStat
+import com.eva.app.presentation.components.EvaGradients
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.SectionHeader
 
-@SuppressLint("SetJavaScriptEnabled")
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors: (Int, String) -> Unit) {
-    val context   = LocalContext.current
-    val hasCoords = clinic.latitude != null && clinic.longitude != null
-    val lat = clinic.latitude?.toDoubleOrNull()
-    val lon = clinic.longitude?.toDoubleOrNull()
+fun ClinicDetailScreen(
+    clinic: ClinicResponse,
+    onBack: () -> Unit,
+    onFindDoctors: (Int, String) -> Unit
+) {
+    val context = LocalContext.current
+    val base    = remember { BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1") }
 
-    val mapUrl = remember(clinic.latitude, clinic.longitude) {
-        val lat = clinic.latitude
-        val lon = clinic.longitude
-        if (lat != null && lon != null) {
-            "https://static-maps.yandex.ru/1.x/?lang=ru_RU&ll=$lon,$lat&z=15&l=map&size=600,300" +
-                    "&pt=$lon,$lat,pm2rdm"
-        } else null
-    }
-
-    fun openInYandex() {
+    fun openInMaps() {
+        val lat = clinic.latitude?.toDoubleOrNull()
+        val lon = clinic.longitude?.toDoubleOrNull()
         val uri = if (lat != null && lon != null)
             Uri.parse("yandexmaps://maps.yandex.ru/?pt=$lon,$lat&z=17&text=${Uri.encode(clinic.clinicName)}")
         else
@@ -52,7 +58,7 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
         else
             Uri.parse("https://maps.yandex.ru/?text=${Uri.encode(clinic.address)}")
         try { context.startActivity(Intent(Intent.ACTION_VIEW, uri)) }
-        catch (e: android.content.ActivityNotFoundException) {
+        catch (_: android.content.ActivityNotFoundException) {
             context.startActivity(Intent(Intent.ACTION_VIEW, browser))
         }
     }
@@ -62,155 +68,179 @@ fun ClinicDetailScreen(clinic: ClinicResponse, onBack: () -> Unit, onFindDoctors
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(clinic.clinicName) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
-            )
+        bottomBar = {
+            Surface(shadowElevation = 8.dp) {
+                Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+                    Button(
+                        onClick  = { onFindDoctors(clinic.clinicId, clinic.clinicName) },
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape    = RoundedCornerShape(50)
+                    ) {
+                        Icon(Icons.Default.PersonSearch, null)
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            stringResource(R.string.clinic_detail_find_doctors_btn),
+                            fontWeight = FontWeight.SemiBold
+                        )
+                    }
+                }
+            }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .padding(padding)
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-        ) {
-            Card(
-                modifier  = Modifier.fillMaxWidth().padding(16.dp).height(220.dp),
-                shape     = RoundedCornerShape(18.dp),
-                elevation = CardDefaults.cardElevation(4.dp)
-            ) {
-                Box(Modifier.fillMaxSize()) {
-                    if (mapUrl != null) {
-                        AndroidView(
-                            factory = { ctx ->
-                                WebView(ctx).apply {
-                                    webViewClient = WebViewClient()
-                                    settings.javaScriptEnabled    = false
-                                    settings.loadWithOverviewMode = true
-                                    settings.useWideViewPort      = true
-                                    settings.builtInZoomControls  = false
-                                    settings.displayZoomControls  = false
-                                }
-                            },
-                            update   = { webView -> webView.loadUrl(mapUrl) },
-                            modifier = Modifier.fillMaxSize()
-                        )
-                    } else {
-                        Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                Icon(Icons.Default.LocationOn, null,
-                                    tint     = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(48.dp))
-                                Spacer(Modifier.height(8.dp))
-                                Text(clinic.address,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-
-                    Button(
-                        onClick  = { openInYandex() },
-                        modifier = Modifier.align(Alignment.BottomEnd).padding(12.dp),
-                        shape    = RoundedCornerShape(12.dp),
-                        colors   = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.primary)
-                    ) {
-                        Icon(Icons.Default.Map, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.clinic_detail_yandex_maps_btn),
-                            style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-
-            Card(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-                shape    = RoundedCornerShape(16.dp)
+        Box(Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(bottom = padding.calculateBottomPadding())
+                    .verticalScroll(rememberScrollState())
             ) {
                 Column(
-                    modifier = Modifier.padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(14.dp)
+                    modifier            = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                        .background(Brush.linearGradient(EvaGradients.clinics))
+                        .statusBarsPadding()
+                        .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
-                    Text(stringResource(R.string.clinic_detail_contact_info),
-                        fontWeight = FontWeight.Bold,
-                        color      = MaterialTheme.colorScheme.primary)
-                    HorizontalDivider()
-
-                    Row(verticalAlignment = Alignment.Top) {
-                        Surface(shape = RoundedCornerShape(10.dp),
-                            color = MaterialTheme.colorScheme.primaryContainer,
-                            modifier = Modifier.size(36.dp)) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Icon(Icons.Default.LocationOn, null,
-                                    tint     = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp))
-                            }
-                        }
-                        Spacer(Modifier.width(12.dp))
-                        Column {
-                            Text(stringResource(R.string.label_address),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Text(clinic.address, fontWeight = FontWeight.Medium)
+                    Box(
+                        modifier         = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.22f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (clinic.logoUrl != null) {
+                            SubcomposeAsyncImage(
+                                model              = "$base${clinic.logoUrl}",
+                                contentDescription = null,
+                                modifier           = Modifier.fillMaxSize().clip(CircleShape),
+                                loading            = {
+                                    Icon(Icons.Default.LocalHospital, null,
+                                        tint     = Color.White,
+                                        modifier = Modifier.size(54.dp))
+                                },
+                                error = {
+                                    Icon(Icons.Default.LocalHospital, null,
+                                        tint     = Color.White,
+                                        modifier = Modifier.size(54.dp))
+                                }
+                            )
+                        } else {
+                            Icon(Icons.Default.LocalHospital, null,
+                                tint     = Color.White,
+                                modifier = Modifier.size(54.dp))
                         }
                     }
+                    Spacer(Modifier.height(14.dp))
+                    Text(
+                        clinic.clinicName,
+                        style     = EvaType.heroTitle,
+                        color     = Color.White,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(Modifier.height(20.dp))
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceEvenly,
+                        verticalAlignment     = Alignment.CenterVertically
+                    ) {
+                        HeroStat(
+                            icon  = Icons.Default.Star,
+                            value = clinic.rating ?: "—",
+                            label = stringResource(R.string.doctor_stat_rating),
+                            tint  = Color(0xFFFFC107)
+                        )
+                        VerticalDivider(
+                            modifier = Modifier.height(36.dp),
+                            color    = Color.White.copy(alpha = 0.35f)
+                        )
+                        HeroStat(
+                            icon  = Icons.Default.People,
+                            value = "${clinic.doctorsCount}",
+                            label = stringResource(R.string.clinic_stat_doctors),
+                            tint  = Color.White
+                        )
+                    }
+                }
 
-                    clinic.phone?.let { phone ->
+                Spacer(Modifier.height(20.dp))
+
+                SectionHeader(
+                    stringResource(R.string.clinic_detail_contact_info),
+                    modifier = Modifier.padding(horizontal = 16.dp)
+                )
+                Spacer(Modifier.height(8.dp))
+                Surface(
+                    shape    = RoundedCornerShape(16.dp),
+                    border   = androidx.compose.foundation.BorderStroke(
+                        1.dp, MaterialTheme.colorScheme.outlineVariant
+                    ),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Column {
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
+                            modifier          = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Surface(shape = RoundedCornerShape(10.dp),
-                                    color = MaterialTheme.colorScheme.secondaryContainer,
-                                    modifier = Modifier.size(36.dp)) {
-                                    Box(contentAlignment = Alignment.Center) {
-                                        Icon(Icons.Default.Phone, null,
-                                            tint     = MaterialTheme.colorScheme.secondary,
-                                            modifier = Modifier.size(18.dp))
-                                    }
-                                }
-                                Spacer(Modifier.width(12.dp))
-                                Column {
-                                    Text(stringResource(R.string.clinic_detail_phone_label),
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                                    Text(phone, fontWeight = FontWeight.Medium)
-                                }
+                            Column(Modifier.weight(1f)) {
+                                Text(
+                                    stringResource(R.string.label_address),
+                                    style = EvaType.cardSub,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                Text(clinic.address, style = EvaType.bodyText)
                             }
-                            IconButton(onClick = { callPhone(phone) }) {
-                                Icon(Icons.Default.Call, null,
-                                    tint = MaterialTheme.colorScheme.primary)
+                            TextButton(onClick = { openInMaps() }) {
+                                Text(
+                                    stringResource(R.string.clinic_on_map_btn),
+                                    style = EvaType.menuLabel
+                                )
+                            }
+                        }
+
+                        clinic.phone?.let { phone ->
+                            HorizontalDivider()
+                            Row(
+                                modifier          = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(Modifier.weight(1f)) {
+                                    Text(
+                                        stringResource(R.string.clinic_detail_phone_label),
+                                        style = EvaType.cardSub,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                    Text(phone, style = EvaType.bodyText)
+                                }
+                                IconButton(onClick = { callPhone(phone) }) {
+                                    Icon(Icons.Default.Call, null,
+                                        tint = MaterialTheme.colorScheme.primary)
+                                }
                             }
                         }
                     }
                 }
+
+                Spacer(Modifier.height(24.dp))
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            Button(
-                onClick  = { onFindDoctors(clinic.clinicId, clinic.clinicName) },
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp).height(52.dp),
-                shape    = RoundedCornerShape(14.dp)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp)
             ) {
-                Icon(Icons.Default.PersonSearch, null, modifier = Modifier.size(20.dp))
-                Spacer(Modifier.width(8.dp))
-                Text(stringResource(R.string.clinic_detail_find_doctors_btn),
-                    style      = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.SemiBold)
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                }
             }
-
-            Spacer(Modifier.height(24.dp))
         }
     }
 }

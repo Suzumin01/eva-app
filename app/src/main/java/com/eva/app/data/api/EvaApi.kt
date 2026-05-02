@@ -92,6 +92,9 @@ interface EvaApi {
     @GET("symptoms/history")
     suspend fun getSymptomsHistory(): Response<List<SymptomsHistoryResponse>>
 
+    @GET("symptoms/quota")
+    suspend fun getSymptomsQuota(): Response<SymptomsQuotaResponse>
+
     @GET("doctors/{id}/can-review")
     suspend fun canReview(@Path("id") id: Int): Response<Map<String, Boolean>>
 

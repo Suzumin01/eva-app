@@ -225,6 +225,9 @@ class SymptomsRepository @Inject constructor(private val api: EvaApi) {
 
     suspend fun getHistory(): Resource<List<SymptomsHistoryResponse>> =
         safeApiCall { api.getSymptomsHistory() }
+
+    suspend fun getQuota(): Resource<SymptomsQuotaResponse> =
+        safeApiCall { api.getSymptomsQuota() }
 }
 
 @Singleton

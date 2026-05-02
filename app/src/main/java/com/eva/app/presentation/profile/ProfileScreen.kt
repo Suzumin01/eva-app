@@ -4,7 +4,7 @@ import android.content.Context
 import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -17,14 +17,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -36,7 +35,11 @@ import com.eva.app.data.api.UserProfileResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaGradients
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.ProfileNameSkeleton
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.io.File
@@ -46,7 +49,8 @@ import javax.inject.Inject
 @HiltViewModel
 class ProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _profile        = MutableStateFlow<UserProfileResponse?>(null)
     val profile = _profile.asStateFlow()
@@ -99,7 +103,7 @@ class ProfileViewModel @Inject constructor(
                 }
                 file.delete()
             } else {
-                _photoError.value = "Не удалось прочитать файл"
+                _photoError.value = context.getString(R.string.profile_photo_file_read_error)
             }
             _photoUploading.value = false
         }
@@ -177,124 +181,149 @@ fun ProfileScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding)
+                .padding(bottom = padding.calculateBottomPadding())
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Spacer(Modifier.height(16.dp))
-
-            Box(contentAlignment = Alignment.BottomEnd) {
-                Surface(
-                    shape    = CircleShape,
-                    color    = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(96.dp)
-                ) {
-                    if (avatarUrl != null) {
-                        AsyncImage(
-                            model = ImageRequest.Builder(context)
-                                .data(avatarUrl)
-                                .crossfade(true)
-                                .build(),
-                            contentDescription = stringResource(R.string.profile_avatar_cd),
-                            contentScale       = ContentScale.Crop,
-                            modifier           = Modifier.fillMaxSize().clip(CircleShape)
-                        )
-                    } else {
-                        Box(contentAlignment = Alignment.Center) {
+            Column(
+                modifier            = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                    .background(Brush.linearGradient(EvaGradients.specs))
+                    .statusBarsPadding()
+                    .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 28.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Box(
+                        modifier         = Modifier
+                            .size(100.dp)
+                            .clip(CircleShape)
+                            .background(Color.White.copy(alpha = 0.22f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (avatarUrl != null) {
+                            AsyncImage(
+                                model              = ImageRequest.Builder(context)
+                                    .data(avatarUrl)
+                                    .crossfade(true)
+                                    .build(),
+                                contentDescription = stringResource(R.string.profile_avatar_cd),
+                                contentScale       = ContentScale.Crop,
+                                modifier           = Modifier.fillMaxSize().clip(CircleShape)
+                            )
+                        } else {
                             Icon(Icons.Default.Person, null,
                                 modifier = Modifier.size(56.dp),
-                                tint     = MaterialTheme.colorScheme.primary)
+                                tint     = Color.White)
+                        }
+                    }
+                    SmallFloatingActionButton(
+                        onClick        = { photoPicker.launch("image/*") },
+                        containerColor = Color.White,
+                        contentColor   = Color(0xFF6A1B9A),
+                        modifier       = Modifier.size(30.dp)
+                    ) {
+                        if (photoUploading) {
+                            CircularProgressIndicator(
+                                modifier    = Modifier.size(16.dp),
+                                strokeWidth = 2.dp,
+                                color       = Color(0xFF6A1B9A)
+                            )
+                        } else {
+                            Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
-                SmallFloatingActionButton(
-                    onClick        = { photoPicker.launch("image/*") },
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor   = MaterialTheme.colorScheme.onPrimary,
-                    modifier       = Modifier.size(30.dp)
-                ) {
-                    if (photoUploading) {
-                        CircularProgressIndicator(
-                            modifier    = Modifier.size(16.dp),
-                            strokeWidth = 2.dp,
-                            color       = MaterialTheme.colorScheme.onPrimary
-                        )
-                    } else {
-                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
+
+                Spacer(Modifier.height(12.dp))
+
+                if (isLoading && displayName == null) {
+                    ProfileNameSkeleton()
+                } else {
+                    displayName?.let {
+                        Text(it, style = EvaType.heroTitle, color = Color.White)
+                    }
+                    displayEmail?.let {
+                        Spacer(Modifier.height(2.dp))
+                        Text(it,
+                            style = EvaType.cardSub,
+                            color = Color.White.copy(alpha = 0.8f))
                     }
                 }
             }
-            Spacer(Modifier.height(12.dp))
 
-            if (isLoading && displayName == null) {
-                CircularProgressIndicator(modifier = Modifier.size(24.dp))
-            } else {
-                displayName?.let {
-                    Text(it, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-                }
-                displayEmail?.let {
-                    Text(it, style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            }
+            Spacer(Modifier.height(16.dp))
 
-            Spacer(Modifier.height(28.dp))
-
-            ProfileActionCard(
+            ProfileMenuCard(
                 icon     = Icons.Default.HealthAndSafety,
-                label    = stringResource(R.string.profile_menu_medical_card),
+                iconTint = Color(0xFF1565C0),
+                title    = stringResource(R.string.profile_menu_medical_card),
                 subtitle = stringResource(R.string.profile_menu_medical_card_sub),
-                color    = MaterialTheme.colorScheme.primaryContainer,
-                iconTint = MaterialTheme.colorScheme.primary,
                 onClick  = onOpenMedicalCard
             )
-            Spacer(Modifier.height(10.dp))
-            ProfileActionCard(
+            ProfileMenuCard(
                 icon     = Icons.Default.Settings,
-                label    = stringResource(R.string.profile_menu_settings),
+                iconTint = Color(0xFF00838F),
+                title    = stringResource(R.string.profile_menu_settings),
                 subtitle = stringResource(R.string.profile_menu_settings_sub),
-                color    = MaterialTheme.colorScheme.secondaryContainer,
-                iconTint = MaterialTheme.colorScheme.secondary,
                 onClick  = onOpenSettings
             )
-            Spacer(Modifier.height(10.dp))
-            ProfileActionCard(
-                icon     = Icons.Default.Logout,
-                label    = stringResource(R.string.profile_menu_logout),
-                subtitle = stringResource(R.string.profile_menu_logout_sub),
-                color    = MaterialTheme.colorScheme.errorContainer,
-                iconTint = MaterialTheme.colorScheme.error,
-                onClick  = { showLogoutDialog = true }
+
+            Spacer(Modifier.height(8.dp))
+
+            ProfileMenuCard(
+                icon       = Icons.Default.Logout,
+                iconTint   = MaterialTheme.colorScheme.error,
+                title      = stringResource(R.string.profile_menu_logout),
+                subtitle   = stringResource(R.string.profile_menu_logout_sub),
+                titleColor = MaterialTheme.colorScheme.error,
+                onClick    = { showLogoutDialog = true }
             )
+
             Spacer(Modifier.height(24.dp))
         }
     }
 }
 
 @Composable
-fun ProfileActionCard(
-    icon: ImageVector, label: String, subtitle: String,
-    color: Color, iconTint: Color, onClick: () -> Unit
+private fun ProfileMenuCard(
+    icon       : ImageVector,
+    iconTint   : Color,
+    title      : String,
+    subtitle   : String,
+    titleColor : Color = Color.Unspecified,
+    onClick    : () -> Unit
 ) {
     Card(
-        modifier  = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        onClick   = onClick,
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
         shape     = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(1.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(12.dp), color = color, modifier = Modifier.size(48.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = iconTint, modifier = Modifier.size(26.dp))
-                }
-            }
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(icon, null,
+                tint     = iconTint,
+                modifier = Modifier.size(22.dp))
             Spacer(Modifier.width(14.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(label, fontWeight = FontWeight.SemiBold, style = MaterialTheme.typography.bodyLarge)
-                Text(subtitle, style = MaterialTheme.typography.bodySmall,
+                Text(title,
+                    style = EvaType.cardTitle,
+                    color = titleColor)
+                Spacer(Modifier.height(1.dp))
+                Text(subtitle,
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Icon(Icons.Default.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.Default.ChevronRight, null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }

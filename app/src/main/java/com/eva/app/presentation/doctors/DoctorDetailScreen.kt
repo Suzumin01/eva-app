@@ -3,7 +3,14 @@ package com.eva.app.presentation.doctors
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
+import com.eva.app.presentation.components.AnimatedListItem
+import com.eva.app.presentation.components.DoctorDetailSkeleton
+import com.eva.app.presentation.components.EvaGradients
+import com.eva.app.presentation.components.GradientIconBox
+import com.eva.app.presentation.components.IconCircle
+import com.eva.app.presentation.components.SectionHeader
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -13,12 +20,14 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -28,6 +37,7 @@ import com.eva.app.data.api.ReviewResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
@@ -154,9 +164,10 @@ fun DoctorDetailScreen(
     val error         by viewModel.error.collectAsState()
     val message       by viewModel.message.collectAsState()
     val currentUserId by viewModel.currentUserId.collectAsState()
-    val snackbar       = remember { SnackbarHostState() }
+    val snackbar = remember { SnackbarHostState() }
 
     var showAddReview  by remember { mutableStateOf(false) }
+    var showReviews    by remember { mutableStateOf(false) }
     var editingReview  by remember { mutableStateOf<ReviewResponse?>(null) }
     var deletingReview by remember { mutableStateOf<ReviewResponse?>(null) }
 
@@ -164,8 +175,19 @@ fun DoctorDetailScreen(
     LaunchedEffect(error)    { error?.let   { snackbar.showSnackbar(it); viewModel.clearError() } }
     LaunchedEffect(message)  { message?.let { snackbar.showSnackbar(it); viewModel.clearMessage() } }
 
+    if (showReviews) {
+        ReviewsBottomSheet(
+            reviews       = reviews,
+            currentUserId = currentUserId,
+            canReview     = canReview,
+            onAddReview   = { showReviews = false; showAddReview = true },
+            onEdit        = { editingReview = it; showReviews = false },
+            onDelete      = { deletingReview = it; showReviews = false },
+            onDismiss     = { showReviews = false }
+        )
+    }
     if (showAddReview) {
-        ReviewDialog(
+        ReviewBottomSheet(
             title     = stringResource(R.string.doctor_add_review_btn),
             onDismiss = { showAddReview = false },
             onSubmit  = { rating, comment ->
@@ -175,7 +197,7 @@ fun DoctorDetailScreen(
         )
     }
     editingReview?.let { review ->
-        ReviewDialog(
+        ReviewBottomSheet(
             title          = stringResource(R.string.doctor_edit_review_title),
             initialRating  = review.rating,
             initialComment = review.comment ?: "",
@@ -207,48 +229,14 @@ fun DoctorDetailScreen(
 
     Scaffold(
         snackbarHost = { SnackbarHost(snackbar) },
-        topBar = {
-            TopAppBar(
-                title = { },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                },
-                actions = {
-                    IconButton(onClick = { viewModel.toggleFavorite(doctorId) }) {
-                        Icon(
-                            if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
-                            contentDescription = stringResource(R.string.doctor_favorites_cd),
-                            tint = if (isFavorite) Color(0xFFE53935)
-                            else MaterialTheme.colorScheme.onPrimary
-                        )
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
-            )
-        },
         bottomBar = {
             doctor?.let {
                 Surface(shadowElevation = 8.dp) {
-                    Column(Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        if (canReview) {
-                            OutlinedButton(
-                                onClick  = { showAddReview = true },
-                                modifier = Modifier.fillMaxWidth().height(48.dp),
-                                shape    = RoundedCornerShape(12.dp)
-                            ) {
-                                Icon(Icons.Default.Star, null,
-                                    tint = Color(0xFFF57F17), modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.doctor_add_review_btn))
-                            }
-                        }
+                    Box(Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                         Button(
                             onClick  = { onBook(doctorId) },
-                            modifier = Modifier.fillMaxWidth().height(52.dp),
-                            shape    = RoundedCornerShape(14.dp)
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape    = RoundedCornerShape(50)
                         ) {
                             Icon(Icons.Default.CalendarMonth, null)
                             Spacer(Modifier.width(8.dp))
@@ -260,173 +248,260 @@ fun DoctorDetailScreen(
         }
     ) { padding ->
         if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
-            }
+            DoctorDetailSkeleton()
             return@Scaffold
         }
         doctor?.let { doc ->
-            LazyColumn(Modifier.padding(padding), contentPadding = PaddingValues(bottom = 16.dp)) {
+            Box(Modifier.fillMaxSize()) {
+            LazyColumn(modifier = Modifier.fillMaxSize().padding(bottom = padding.calculateBottomPadding())) {
                 item {
-                    Box(Modifier.fillMaxWidth().height(200.dp)
-                        .background(Brush.verticalGradient(listOf(Color(0xFF1565C0), Color(0xFF42A5F5))))) {
-                        Column(Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally) {
-                            Surface(shape = RoundedCornerShape(28.dp),
-                                color = Color.White.copy(alpha = 0.2f),
-                                modifier = Modifier.size(80.dp)) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Person, null, tint = Color.White,
-                                        modifier = Modifier.size(48.dp))
-                                }
-                            }
-                            Spacer(Modifier.height(12.dp))
-                            Text(doc.fullName, color = Color.White,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge)
-                            Text(doc.specializationName,
-                                color = Color.White.copy(alpha = 0.9f),
-                                style = MaterialTheme.typography.bodyMedium)
+                    Column(
+                        modifier            = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                            .background(Brush.linearGradient(EvaGradients.doctors))
+                            .statusBarsPadding()
+                            .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Box(
+                            modifier         = Modifier
+                                .size(100.dp)
+                                .clip(CircleShape)
+                                .background(Color.White.copy(alpha = 0.22f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(Icons.Default.Person, null,
+                                tint     = Color.White,
+                                modifier = Modifier.size(54.dp))
                         }
-                    }
-                }
-                item {
-                    Card(Modifier.fillMaxWidth().padding(16.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        elevation = CardDefaults.cardElevation(3.dp)) {
-                        Row(Modifier.padding(16.dp).fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceAround) {
-                            StatBubble(Icons.Default.MedicalServices,
-                                "${doc.experienceYears ?: "—"}",
-                                stringResource(R.string.doctor_stat_experience),
-                                Color(0xFF1565C0))
-                            StatBubble(Icons.Default.Star,
-                                doc.rating ?: "—",
-                                stringResource(R.string.doctor_stat_rating),
-                                Color(0xFFF57F17))
-                            StatBubble(Icons.Default.RateReview,
-                                "${doc.reviewsCount}",
-                                stringResource(R.string.doctor_stat_reviews),
-                                Color(0xFF2E7D32))
-                        }
-                    }
-                }
-                item {
-                    InfoSection(stringResource(R.string.label_clinic)) {
+                        Spacer(Modifier.height(14.dp))
+                        Text(doc.fullName,
+                            style     = EvaType.heroTitle,
+                            color     = Color.White,
+                            textAlign = TextAlign.Center)
+                        Spacer(Modifier.height(4.dp))
+                        Text(doc.specializationName,
+                            style = EvaType.heroSub,
+                            color = Color.White.copy(alpha = 0.85f))
+                        Spacer(Modifier.height(6.dp))
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.LocationOn, null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(20.dp))
-                            Spacer(Modifier.width(8.dp))
-                            Column {
-                                Text(doc.clinicName, fontWeight = FontWeight.SemiBold)
-                                Text(doc.clinicAddress, style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
+                                tint     = Color.White.copy(alpha = 0.7f),
+                                modifier = Modifier.size(14.dp))
+                            Spacer(Modifier.width(3.dp))
+                            Text(doc.clinicName,
+                                style = EvaType.heroCaption,
+                                color = Color.White.copy(alpha = 0.7f))
+                        }
+                        Spacer(Modifier.height(20.dp))
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceEvenly,
+                            verticalAlignment     = Alignment.CenterVertically
+                        ) {
+                            HeroStat(
+                                icon  = Icons.Default.MedicalServices,
+                                value = "${doc.experienceYears ?: "—"}",
+                                label = stringResource(R.string.doctor_stat_experience),
+                                tint  = Color.White
+                            )
+                            VerticalDivider(
+                                modifier = Modifier.height(36.dp),
+                                color    = Color.White.copy(alpha = 0.35f)
+                            )
+                            HeroStat(
+                                icon  = Icons.Default.Star,
+                                value = doc.rating ?: "—",
+                                label = stringResource(R.string.doctor_stat_rating),
+                                tint  = Color(0xFFFFC107)
+                            )
+                            VerticalDivider(
+                                modifier = Modifier.height(36.dp),
+                                color    = Color.White.copy(alpha = 0.35f)
+                            )
+                            HeroStat(
+                                icon  = Icons.Default.RateReview,
+                                value = "${doc.reviewsCount}",
+                                label = stringResource(R.string.doctor_stat_reviews),
+                                tint  = Color.White
+                            )
                         }
                     }
                 }
                 if (!doc.bio.isNullOrBlank()) {
                     item {
-                        InfoSection(stringResource(R.string.doctor_about_section)) {
-                            Text(doc.bio, style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
+                        Spacer(Modifier.height(16.dp))
+                        SectionHeader(stringResource(R.string.doctor_about_section),
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(Modifier.height(6.dp))
+                        Text(doc.bio,
+                            style    = EvaType.bodyText,
+                            color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.87f),
+                            modifier = Modifier.padding(horizontal = 16.dp))
+                        Spacer(Modifier.height(16.dp))
+                        HorizontalDivider()
+                    }
+                }
+                item {
+                    Spacer(Modifier.height(12.dp))
+                    Card(
+                        onClick   = { showReviews = true },
+                        modifier  = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp),
+                        shape     = RoundedCornerShape(14.dp),
+                        colors    = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        ),
+                        elevation = CardDefaults.cardElevation(0.dp)
+                    ) {
+                        Row(
+                            modifier          = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier         = Modifier
+                                    .size(40.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(Color(0xFF2E7D32).copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(Icons.Default.RateReview, null,
+                                    tint     = Color(0xFF2E7D32),
+                                    modifier = Modifier.size(20.dp))
+                            }
+                            Spacer(Modifier.width(14.dp))
+                            Text(
+                                stringResource(R.string.doctor_reviews_count, reviews.size),
+                                style    = EvaType.cardTitle,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(Icons.Default.ChevronRight, null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                    Spacer(Modifier.height(4.dp))
                 }
-                if (reviews.isNotEmpty()) {
-                    item {
-                        Spacer(Modifier.height(8.dp))
-                        Text(stringResource(R.string.doctor_reviews_count, reviews.size),
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(horizontal = 16.dp),
-                            style = MaterialTheme.typography.titleSmall)
-                        Spacer(Modifier.height(8.dp))
-                    }
-                    items(reviews, key = { it.reviewId }) { review ->
-                        val isOwn = review.userId == currentUserId
-                        ReviewCard(
-                            review   = review,
-                            isOwn    = isOwn,
-                            onEdit   = { editingReview = review },
-                            onDelete = { deletingReview = review }
-                        )
-                    }
+                item { Spacer(Modifier.height(16.dp)) }
+            }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(horizontal = 4.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(onClick = onBack) {
+                    Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                 }
+                IconButton(onClick = { viewModel.toggleFavorite(doctorId) }) {
+                    Icon(
+                        if (isFavorite) Icons.Default.Favorite else Icons.Outlined.FavoriteBorder,
+                        contentDescription = stringResource(R.string.doctor_favorites_cd),
+                        tint = if (isFavorite) Color(0xFFE53935) else Color.White
+                    )
+                }
+            }
             }
         }
     }
 }
 
 @Composable
-fun ReviewCard(
+fun ReviewRow(
     review: ReviewResponse,
     isOwn: Boolean,
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
-        shape    = RoundedCornerShape(12.dp),
-        colors   = if (isOwn)
-            CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.4f))
-        else
-            CardDefaults.cardColors()
-    ) {
-        Column(Modifier.padding(12.dp)) {
-            Row(Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment     = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Row(verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                        Text(review.userFullName, fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.bodyMedium)
-                        if (isOwn) {
-                            Surface(shape = RoundedCornerShape(4.dp),
-                                color = MaterialTheme.colorScheme.primary) {
-                                Text(stringResource(R.string.doctor_review_yours),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onPrimary,
-                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp))
+    Column {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(IntrinsicSize.Min)
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .fillMaxHeight()
+                    .background(
+                        if (isOwn) MaterialTheme.colorScheme.primary
+                        else Color.Transparent
+                    )
+            )
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(horizontal = 14.dp, vertical = 10.dp)
+            ) {
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment     = Alignment.CenterVertically
+                ) {
+                    Column(Modifier.weight(1f)) {
+                        Row(
+                            verticalAlignment     = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Text(review.userFullName,
+                                style = EvaType.cardTitle)
+                            if (isOwn) {
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(MaterialTheme.colorScheme.primary)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(stringResource(R.string.doctor_review_yours),
+                                        style = EvaType.cardMeta,
+                                        color = MaterialTheme.colorScheme.onPrimary)
+                                }
+                            }
+                        }
+                        Row {
+                            repeat(5) { i ->
+                                Icon(Icons.Default.Star, null,
+                                    tint     = if (i < review.rating) Color(0xFFFFC107)
+                                               else MaterialTheme.colorScheme.surfaceVariant,
+                                    modifier = Modifier.size(14.dp))
                             }
                         }
                     }
-                    Row {
-                        repeat(5) { i ->
-                            Icon(Icons.Default.Star, null,
-                                tint = if (i < review.rating) Color(0xFFFFC107)
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(14.dp))
+                    if (isOwn) {
+                        Row {
+                            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Edit, null,
+                                    tint     = MaterialTheme.colorScheme.primary,
+                                    modifier = Modifier.size(18.dp))
+                            }
+                            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
+                                Icon(Icons.Default.Delete, null,
+                                    tint     = MaterialTheme.colorScheme.error,
+                                    modifier = Modifier.size(18.dp))
+                            }
                         }
                     }
                 }
-                if (isOwn) {
-                    Row {
-                        IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Edit, null,
-                                tint = MaterialTheme.colorScheme.primary,
-                                modifier = Modifier.size(18.dp))
-                        }
-                        IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                            Icon(Icons.Default.Delete, null,
-                                tint = MaterialTheme.colorScheme.error,
-                                modifier = Modifier.size(18.dp))
-                        }
-                    }
+                review.comment?.let {
+                    Spacer(Modifier.height(4.dp))
+                    Text(it,
+                        style = EvaType.cardMeta,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-            }
-            review.comment?.let {
-                Spacer(Modifier.height(4.dp))
-                Text(it, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        HorizontalDivider(modifier = Modifier.padding(start = 3.dp))
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ReviewDialog(
+fun ReviewBottomSheet(
     title: String,
     initialRating: Int = 5,
     initialComment: String = "",
@@ -435,6 +510,7 @@ fun ReviewDialog(
 ) {
     var rating  by remember { mutableStateOf(initialRating) }
     var comment by remember { mutableStateOf(initialComment) }
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
 
     val ratingLabel = when (rating) {
         1    -> stringResource(R.string.review_rating_1)
@@ -444,71 +520,138 @@ fun ReviewDialog(
         else -> stringResource(R.string.review_rating_5)
     }
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(title) },
-        text  = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(stringResource(R.string.review_your_rating),
-                    style = MaterialTheme.typography.bodyMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
-                    (1..5).forEach { i ->
-                        IconButton(onClick = { rating = i }, modifier = Modifier.size(40.dp)) {
-                            Icon(Icons.Default.Star, null,
-                                tint = if (i <= rating) Color(0xFFFFC107)
-                                else MaterialTheme.colorScheme.surfaceVariant,
-                                modifier = Modifier.size(32.dp))
-                        }
+        sheetState       = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(title,
+                style = EvaType.sheetTitle)
+            HorizontalDivider()
+            Text(stringResource(R.string.review_your_rating),
+                style = EvaType.cardSub,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                (1..5).forEach { i ->
+                    IconButton(onClick = { rating = i }, modifier = Modifier.size(44.dp)) {
+                        Icon(Icons.Default.Star, null,
+                            tint     = if (i <= rating) Color(0xFFFFC107)
+                                       else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(34.dp))
                     }
                 }
-                Text(ratingLabel,
-                    color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Medium)
-                OutlinedTextField(
-                    value         = comment,
-                    onValueChange = { comment = it },
-                    label         = { Text(stringResource(R.string.review_comment_label)) },
-                    modifier      = Modifier.fillMaxWidth(),
-                    shape         = RoundedCornerShape(10.dp),
-                    minLines = 2, maxLines = 5
-                )
             }
-        },
-        confirmButton = {
-            Button(onClick = { onSubmit(rating, comment) }) {
-                Text(stringResource(R.string.btn_save))
+            Text(ratingLabel,
+                color      = MaterialTheme.colorScheme.primary,
+                fontWeight = FontWeight.Medium,
+                style      = MaterialTheme.typography.bodySmall)
+            OutlinedTextField(
+                value         = comment,
+                onValueChange = { comment = it },
+                label         = { Text(stringResource(R.string.review_comment_label)) },
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(12.dp),
+                minLines      = 2, maxLines = 5
+            )
+            Button(
+                onClick  = { onSubmit(rating, comment) },
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape    = RoundedCornerShape(50)
+            ) {
+                Text(stringResource(R.string.btn_save), fontWeight = FontWeight.SemiBold)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
         }
-    )
-}
-
-@Composable
-fun StatBubble(icon: ImageVector, value: String, label: String, color: Color) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Box(Modifier.size(48.dp).clip(RoundedCornerShape(14.dp))
-            .background(color.copy(alpha = 0.12f)),
-            contentAlignment = Alignment.Center) {
-            Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
-        }
-        Spacer(Modifier.height(4.dp))
-        Text(value, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleMedium)
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
 @Composable
-fun InfoSection(title: String, content: @Composable () -> Unit) {
-    Card(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp),
-        shape = RoundedCornerShape(16.dp)) {
-        Column(Modifier.padding(16.dp)) {
-            Text(title, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(10.dp))
-            content()
+fun HeroStat(icon: ImageVector, value: String, label: String, tint: Color) {
+    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, null, tint = tint, modifier = Modifier.size(14.dp))
+            Spacer(Modifier.width(4.dp))
+            Text(value,
+                style = EvaType.heroStat,
+                color = Color.White)
+        }
+        Text(label,
+            style = EvaType.heroStatLabel,
+            color = Color.White.copy(alpha = 0.75f))
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ReviewsBottomSheet(
+    reviews: List<ReviewResponse>,
+    currentUserId: String?,
+    canReview: Boolean,
+    onAddReview: () -> Unit,
+    onEdit: (ReviewResponse) -> Unit,
+    onDelete: (ReviewResponse) -> Unit,
+    onDismiss: () -> Unit
+) {
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState       = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 32.dp)
+        ) {
+            Row(
+                modifier          = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    if (reviews.isEmpty()) stringResource(R.string.doctor_reviews_title)
+                    else stringResource(R.string.doctor_reviews_count, reviews.size),
+                    style    = EvaType.sheetTitle,
+                    modifier = Modifier.weight(1f)
+                )
+                if (canReview) {
+                    TextButton(onClick = onAddReview) {
+                        Icon(Icons.Default.Star, null,
+                            tint     = Color(0xFFF57F17),
+                            modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text(stringResource(R.string.doctor_add_review_btn))
+                    }
+                }
+            }
+            HorizontalDivider()
+            if (reviews.isEmpty()) {
+                Box(
+                    modifier         = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 40.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(stringResource(R.string.doctor_no_reviews),
+                        style = EvaType.cardSub,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            } else {
+                reviews.forEach { review ->
+                    val isOwn = review.userId == currentUserId
+                    ReviewRow(
+                        review   = review,
+                        isOwn    = isOwn,
+                        onEdit   = { onEdit(review) },
+                        onDelete = { onDelete(review) }
+                    )
+                }
+            }
         }
     }
 }

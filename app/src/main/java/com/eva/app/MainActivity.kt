@@ -7,14 +7,24 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.*
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.scale
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.stringResource
+import androidx.core.view.WindowCompat
 import com.eva.app.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
@@ -43,7 +53,6 @@ import com.eva.app.presentation.doctors.DoctorsScreen
 import com.eva.app.presentation.home.HomeScreen
 import com.eva.app.presentation.medical_card.MedicalCardScreen
 import com.eva.app.presentation.navigation.Screen
-import com.eva.app.presentation.notifications.NotificationDetailScreen
 import com.eva.app.presentation.notifications.NotificationsScreen
 import com.eva.app.presentation.notifications.NotificationsViewModel
 import com.eva.app.presentation.onboarding.OnboardingScreen
@@ -105,6 +114,7 @@ class MainActivity : ComponentActivity() {
                 EvaApp(
                     startDestination = Screen.Splash.route,
                     tokenManager     = tokenManager,
+                    darkTheme        = darkTheme,
                     pendingNotifId   = pendingNotifId.value,
                     onNotifConsumed  = { pendingNotifId.value = null },
                     findSpecId       = specializationRepository::findIdByName
@@ -128,9 +138,10 @@ class ConsentCheckViewModel @Inject constructor(
 }
 
 data class BottomItem(
-    val screen: Screen,
-    val icon:   androidx.compose.ui.graphics.vector.ImageVector,
-    val label:  String
+    val screen:       Screen,
+    val selectedIcon: androidx.compose.ui.graphics.vector.ImageVector,
+    val defaultIcon:  androidx.compose.ui.graphics.vector.ImageVector,
+    val label:        String
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -138,6 +149,7 @@ data class BottomItem(
 fun EvaApp(
     startDestination: String,
     tokenManager: TokenManager,
+    darkTheme: Boolean = false,
     pendingNotifId: String?  = null,
     onNotifConsumed: () -> Unit = {},
     findSpecId: (String) -> Int? = { com.eva.app.util.Specializations.findIdByName(it) }
@@ -145,6 +157,21 @@ fun EvaApp(
     val navController = rememberNavController()
     val currentEntry  by navController.currentBackStackEntryAsState()
     val currentRoute  = currentEntry?.destination?.route
+
+    val view = LocalView.current
+    if (!view.isInEditMode) {
+        SideEffect {
+            val window = (view.context as android.app.Activity).window
+            window.statusBarColor = android.graphics.Color.TRANSPARENT
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
+        }
+    }
+
+    val activity   = LocalContext.current as ComponentActivity
+    val symptomsVm = androidx.hilt.navigation.compose.hiltViewModel<SymptomsViewModel>(activity)
+    val notifVm    = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>(activity)
+    val notifications by notifVm.notifications.collectAsState()
+    val unreadCount = notifications.count { !it.isRead }
 
     // Разлогин при истечении JWT — сервер вернул 401, интерсептор вызвал emitUnauthorized.
     // withContext(Main) гарантирует выполнение навигации на main thread даже если
@@ -159,17 +186,16 @@ fun EvaApp(
 
     LaunchedEffect(pendingNotifId) {
         val notifId = pendingNotifId ?: return@LaunchedEffect
-        // Сначала кладём Notifications в стек, затем открываем Detail
-        navController.navigate(Screen.Notifications.route) { launchSingleTop = true }
-        navController.navigate(Screen.NotificationDetail.createRoute(notifId)) { launchSingleTop = true }
+        notifVm.load()
+        navController.navigate(Screen.Notifications.createRoute(notifId)) { launchSingleTop = true }
         onNotifConsumed()
     }
 
     val bottomItems = listOf(
-        BottomItem(Screen.Home,         Icons.Default.Home,          stringResource(R.string.nav_home)),
-        BottomItem(Screen.Appointments, Icons.Default.CalendarMonth, stringResource(R.string.nav_appointments)),
-        BottomItem(Screen.Symptoms,     Icons.Default.Psychology,    stringResource(R.string.nav_symptoms)),
-        BottomItem(Screen.Profile,      Icons.Default.Person,        stringResource(R.string.nav_profile))
+        BottomItem(Screen.Home,         Icons.Default.Home,          Icons.Outlined.Home,          stringResource(R.string.nav_home)),
+        BottomItem(Screen.Appointments, Icons.Default.CalendarMonth, Icons.Outlined.CalendarMonth, stringResource(R.string.nav_appointments)),
+        BottomItem(Screen.Symptoms,     Icons.Default.Psychology,    Icons.Outlined.Psychology,    stringResource(R.string.nav_symptoms)),
+        BottomItem(Screen.Profile,      Icons.Default.Person,        Icons.Outlined.Person,        stringResource(R.string.nav_profile))
     )
     val bottomRoutes = bottomItems.map { it.screen.route }
     val showBottom   = currentRoute in bottomRoutes
@@ -180,34 +206,30 @@ fun EvaApp(
         Screen.Profile.route      to stringResource(R.string.nav_profile)
     )
 
-    val activity   = LocalContext.current as ComponentActivity
-    val symptomsVm = androidx.hilt.navigation.compose.hiltViewModel<SymptomsViewModel>(activity)
-
     Scaffold(
-        topBar = {
-            if (showBottom) {
-                TopAppBar(
-                    title   = { Text(topTitles[currentRoute] ?: stringResource(R.string.app_name)) },
-                    actions = {
-                        IconButton(onClick = { navController.navigate(Screen.Notifications.route) }) {
-                            Icon(Icons.Default.Notifications, null,
-                                tint = MaterialTheme.colorScheme.onPrimary)
-                        }
-                    },
-                    colors = TopAppBarDefaults.topAppBarColors(
-                        containerColor    = MaterialTheme.colorScheme.primary,
-                        titleContentColor = MaterialTheme.colorScheme.onPrimary)
-                )
-            }
-        },
+        containerColor = MaterialTheme.colorScheme.background,
         bottomBar = {
             if (showBottom) {
                 NavigationBar {
                     bottomItems.forEach { item ->
                         val isSelected = currentEntry?.destination?.hierarchy
                             ?.any { it.route == item.screen.route } == true
+                        val iconScale by animateFloatAsState(
+                            targetValue   = if (isSelected) 1.15f else 1f,
+                            animationSpec = spring(
+                                dampingRatio = Spring.DampingRatioMediumBouncy,
+                                stiffness    = Spring.StiffnessMedium
+                            ),
+                            label = "navScale_${item.screen.route}"
+                        )
                         NavigationBarItem(
-                            icon     = { Icon(item.icon, item.label) },
+                            icon = {
+                                Icon(
+                                    if (isSelected) item.selectedIcon else item.defaultIcon,
+                                    item.label,
+                                    modifier = Modifier.scale(iconScale)
+                                )
+                            },
                             label    = { Text(item.label) },
                             selected = isSelected,
                             onClick  = {
@@ -224,7 +246,17 @@ fun EvaApp(
             }
         }
     ) { innerPadding ->
-        NavHost(navController, startDestination, Modifier.padding(innerPadding)) {
+        NavHost(
+            navController    = navController,
+            startDestination = startDestination,
+            modifier         = Modifier
+                .padding(innerPadding)
+                .background(MaterialTheme.colorScheme.background),
+            enterTransition     = { fadeIn(tween(300)) },
+            exitTransition      = { fadeOut(tween(200)) },
+            popEnterTransition  = { fadeIn(tween(300)) },
+            popExitTransition   = { fadeOut(tween(200)) }
+        ) {
 
             composable(Screen.Splash.route) {
                 SplashScreen(onDestinationReady = { dest ->
@@ -300,6 +332,8 @@ fun EvaApp(
                     onDoctors         = { navController.navigate(Screen.Doctors.createRoute()) },
                     onClinics         = { navController.navigate(Screen.Clinics.route) },
                     onSpecializations = { navController.navigate(Screen.Specializations.route) },
+                    onNotifications   = { notifVm.load(); navController.navigate(Screen.Notifications.createRoute()) },
+                    unreadCount       = unreadCount,
                     onSymptoms        = { navController.navigate(Screen.SymptomsForm.route) },
                     onAppointments    = { navController.navigate(Screen.Appointments.route) },
                     onDoctorClick     = { navController.navigate(Screen.DoctorDetail.createRoute(it)) }
@@ -415,19 +449,16 @@ fun EvaApp(
                     viewModel = symptomsVm)
             }
 
-            composable(Screen.Notifications.route) {
-                val notifVm = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>()
-                NotificationsScreen(onBack = { navController.popBackStack() },
-                    onNotifClick = { navController.navigate(Screen.NotificationDetail.createRoute(it)) },
-                    viewModel = notifVm)
-            }
-            composable(Screen.NotificationDetail.route,
-                listOf(navArgument("notifId") { type = NavType.StringType })) { entry ->
-                val notifId     = entry.arguments?.getString("notifId") ?: return@composable
-                val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Notifications.route) }
-                val notifVm     = androidx.hilt.navigation.compose.hiltViewModel<NotificationsViewModel>(parentEntry)
-                NotificationDetailScreen(notifId = notifId,
-                    onBack = { navController.popBackStack() }, viewModel = notifVm)
+            composable(
+                Screen.Notifications.route,
+                listOf(navArgument("notifId") { type = NavType.StringType; defaultValue = "" })
+            ) { entry ->
+                val notifId = entry.arguments?.getString("notifId")?.takeIf { it.isNotEmpty() }
+                NotificationsScreen(
+                    onBack          = { navController.popBackStack() },
+                    autoOpenNotifId = notifId,
+                    viewModel       = notifVm
+                )
             }
         }
     }

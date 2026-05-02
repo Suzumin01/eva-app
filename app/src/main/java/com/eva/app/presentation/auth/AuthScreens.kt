@@ -178,19 +178,15 @@ fun LoginScreen(
 
                     if (state is AuthState.Error) {
                         Spacer(Modifier.height(10.dp))
-                        Card(colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer),
-                            shape = RoundedCornerShape(10.dp)) {
-                            Row(modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.ErrorOutline, null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text((state as AuthState.Error).message,
-                                    color = MaterialTheme.colorScheme.onErrorContainer,
-                                    style = MaterialTheme.typography.bodySmall)
-                            }
+                        Row(modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically) {
+                            Icon(Icons.Default.ErrorOutline, null,
+                                tint     = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text((state as AuthState.Error).message,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall)
                         }
                     }
 
@@ -199,8 +195,8 @@ fun LoginScreen(
                         onClick  = { viewModel.login(email, password) },
                         enabled  = state !is AuthState.Loading
                                 && email.isNotBlank() && password.isNotBlank(),
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape    = RoundedCornerShape(14.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape    = RoundedCornerShape(50)
                     ) {
                         if (state is AuthState.Loading)
                             CircularProgressIndicator(modifier = Modifier.size(20.dp),
@@ -254,14 +250,12 @@ fun RegisterScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.register_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -331,19 +325,15 @@ fun RegisterScreen(
 
             if (state is AuthState.Error) {
                 Spacer(Modifier.height(10.dp))
-                Card(colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(10.dp)) {
-                    Row(modifier = Modifier.padding(10.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ErrorOutline, null,
-                            tint = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text((state as AuthState.Error).message,
-                            color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
+                Row(modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ErrorOutline, null,
+                        tint     = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text((state as AuthState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
 
@@ -362,8 +352,8 @@ fun RegisterScreen(
                         && email.isNotBlank()
                         && password.length >= 8
                         && confirmPassword == password,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape    = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape    = RoundedCornerShape(50)
             ) {
                 if (state is AuthState.Loading)
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
@@ -424,12 +414,14 @@ fun ForgotPasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.forgot_password_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
                     }
-                }
+                },
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -468,32 +460,35 @@ fun ForgotPasswordScreen(
 
             if (state is ForgotPasswordState.Error) {
                 Spacer(Modifier.height(10.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        (state as ForgotPasswordState.Error).message,
-                        modifier = Modifier.padding(10.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Row(modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ErrorOutline, null,
+                        tint     = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text((state as ForgotPasswordState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
 
             if (state is ForgotPasswordState.Success &&
                 (state as ForgotPasswordState.Success).resetToken == null) {
                 Spacer(Modifier.height(10.dp))
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer),
-                    shape = RoundedCornerShape(10.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth()
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.primaryContainer)
+                        .padding(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        stringResource(R.string.forgot_password_success, email),
-                        modifier = Modifier.padding(12.dp),
-                        color = MaterialTheme.colorScheme.onPrimaryContainer
-                    )
+                    Icon(Icons.Default.CheckCircle, null,
+                        tint     = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(stringResource(R.string.forgot_password_success, email),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
 
@@ -501,8 +496,8 @@ fun ForgotPasswordScreen(
             Button(
                 onClick = { viewModel.requestReset(email.trim().lowercase()) },
                 enabled = email.isNotBlank() && state !is ForgotPasswordState.Loading,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(50)
             ) {
                 if (state is ForgotPasswordState.Loading)
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
@@ -562,12 +557,14 @@ fun ResetPasswordScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.reset_password_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.Default.ArrowBack, contentDescription = null)
                     }
-                }
+                },
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
@@ -624,16 +621,15 @@ fun ResetPasswordScreen(
 
             if (state is ResetPasswordState.Error) {
                 Spacer(Modifier.height(10.dp))
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(10.dp)
-                ) {
-                    Text(
-                        (state as ResetPasswordState.Error).message,
-                        modifier = Modifier.padding(10.dp),
-                        color = MaterialTheme.colorScheme.onErrorContainer,
-                        style = MaterialTheme.typography.bodySmall
-                    )
+                Row(modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Default.ErrorOutline, null,
+                        tint     = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text((state as ResetPasswordState.Error).message,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall)
                 }
             }
 
@@ -643,8 +639,8 @@ fun ResetPasswordScreen(
                 enabled = newPassword.length >= 8 && passwordsMatch
                        && confirmPassword.isNotBlank()
                        && state !is ResetPasswordState.Loading,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape = RoundedCornerShape(50)
             ) {
                 if (state is ResetPasswordState.Loading)
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),

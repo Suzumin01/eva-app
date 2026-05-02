@@ -1,6 +1,7 @@
 package com.eva.app.presentation.settings
 
 import android.app.DatePickerDialog
+import android.content.Context
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -25,11 +26,13 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
+import com.eva.app.presentation.components.EvaType
 import com.eva.app.data.api.UserProfileResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.AuthRepository
 import com.eva.app.util.Resource
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -71,7 +74,8 @@ class PhoneVisualTransformation : VisualTransformation {
 @HiltViewModel
 class EditProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _profile        = MutableStateFlow<UserProfileResponse?>(null)
     val profile = _profile.asStateFlow()
@@ -88,7 +92,7 @@ class EditProfileViewModel @Inject constructor(
         viewModelScope.launch {
             when (val r = authRepository.getMe()) {
                 is Resource.Success -> _profile.value = r.data
-                is Resource.Error   -> _error.value = r.message ?: "Ошибка загрузки профиля"
+                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.edit_profile_load_error)
                 else -> {}
             }
             _profileLoading.value = false
@@ -119,7 +123,7 @@ class EditProfileViewModel @Inject constructor(
                     r.data?.fullName?.let { tokenManager.saveUserName(it) }
                     _saved.value = true
                 }
-                is Resource.Error -> _error.value = r.message ?: "Ошибка сохранения"
+                is Resource.Error -> _error.value = r.message ?: context.getString(R.string.edit_profile_save_error)
                 else -> {}
             }
             _isSaving.value = false
@@ -196,7 +200,10 @@ fun EditProfileScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.edit_profile_screen_title)) },
+                title = {
+                    Text(stringResource(R.string.settings_edit_profile),
+                        style = EvaType.cardTitle)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
@@ -205,17 +212,14 @@ fun EditProfileScreen(
                         onClick  = { viewModel.save(fullName, phone, allergies, chronic, insurance, dob) },
                         enabled  = canSave
                     ) {
-                        if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp,
-                            color = MaterialTheme.colorScheme.onPrimary)
-                        else Text(stringResource(R.string.btn_save),
-                            color = MaterialTheme.colorScheme.onPrimary,
-                            fontWeight = FontWeight.SemiBold)
+                        if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
+                        else Text(stringResource(R.string.btn_save), fontWeight = FontWeight.SemiBold)
                     }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors       = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         },
         snackbarHost = { SnackbarHost(snackbar) }
@@ -334,7 +338,7 @@ fun EditProfileScreen(
 
             EditSection(stringResource(R.string.edit_profile_section_medical)) {
                 Text(stringResource(R.string.edit_profile_medical_hint),
-                    style = MaterialTheme.typography.labelSmall,
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Spacer(Modifier.height(4.dp))
                 OutlinedTextField(
@@ -363,8 +367,8 @@ fun EditProfileScreen(
             Button(
                 onClick  = { viewModel.save(fullName, phone, allergies, chronic, insurance, dob) },
                 enabled  = canSave,
-                modifier = Modifier.fillMaxWidth().height(52.dp),
-                shape    = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape    = RoundedCornerShape(50)
             ) {
                 if (isSaving) CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary)
@@ -381,13 +385,22 @@ fun EditProfileScreen(
 
 @Composable
 fun EditSection(title: String, content: @Composable ColumnScope.() -> Unit) {
-    Column {
-        Text(title, style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.SemiBold,
-            modifier = Modifier.padding(bottom = 6.dp, start = 4.dp))
-        Card(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-            Column(modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp), content = content)
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(title,
+            style    = EvaType.sectionTitle,
+            color    = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(bottom = 2.dp))
+        Card(
+            modifier  = Modifier.fillMaxWidth(),
+            shape     = RoundedCornerShape(16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+            colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+        ) {
+            Column(
+                modifier            = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+                content             = content
+            )
         }
     }
 }

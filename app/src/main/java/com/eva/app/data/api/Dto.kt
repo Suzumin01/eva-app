@@ -129,6 +129,7 @@ data class ClinicResponse(
     val phone: String?,
     val latitude: String?,
     val longitude: String?,
+    val logoUrl: String? = null,
     val rating: String? = null,
     val doctorsCount: Int = 0
 )
@@ -177,6 +178,7 @@ data class AnalyzeSymptomsRequest(
 
 data class AnalyzeSymptomsResponse(
     val requestId: String,
+    val title: String = "",
     val diagnosis: String,
     val recommendations: String,
     val urgency: String,
@@ -197,11 +199,18 @@ data class SymptomsHistoryResponse(
 )
 
 data class AiResponseDto(
+    val title: String = "",
     val diagnosis: String,
     val recommendations: String,
     val urgency: String,
     val confidence: String,
     val modelVersion: String
+)
+
+data class SymptomsQuotaResponse(
+    val used: Int,
+    val limit: Int,
+    val remaining: Int
 )
 
 data class NotificationResponse(

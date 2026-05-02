@@ -1,7 +1,8 @@
 package com.eva.app.presentation.booking
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -15,11 +16,15 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.eva.app.presentation.components.EvaGradients
+import com.eva.app.presentation.components.GradientIconBox
+import com.eva.app.presentation.components.SectionHeader
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -32,6 +37,7 @@ import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.data.repository.ScheduleRepository
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaType
 import com.eva.app.util.formatDate
 import com.eva.app.util.formatDateLabel
 import com.eva.app.util.formatTime
@@ -221,7 +227,7 @@ fun BookingScreen(
     }
 
     if (showConfirm && selectedSlot != null) {
-        BookingConfirmDialog(
+        BookingConfirmSheet(
             doctorName   = doctor?.fullName ?: "",
             slot         = selectedSlot!!,
             notes        = notes,
@@ -238,37 +244,38 @@ fun BookingScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.booking_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         },
         bottomBar = {
             Surface(shadowElevation = 8.dp) {
-                Column {
+                Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
                     if (bookState is BookState.Error) {
-                        Card(
-                            colors = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.errorContainer),
-                            modifier = Modifier.fillMaxWidth()
-                                .padding(horizontal = 16.dp, vertical = 4.dp)
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier          = Modifier.padding(bottom = 8.dp)
                         ) {
-                            Text((bookState as BookState.Error).msg,
-                                modifier = Modifier.padding(10.dp),
-                                color = MaterialTheme.colorScheme.onErrorContainer,
-                                style = MaterialTheme.typography.bodySmall)
+                            Icon(Icons.Default.ErrorOutline, null,
+                                tint     = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(16.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text(
+                                (bookState as BookState.Error).msg,
+                                color = MaterialTheme.colorScheme.error,
+                                style = MaterialTheme.typography.bodySmall
+                            )
                         }
                     }
                     Button(
                         onClick  = { showConfirm = true },
                         enabled  = selectedSlot != null && bookState !is BookState.Loading,
-                        modifier = Modifier.fillMaxWidth().padding(16.dp).height(52.dp),
-                        shape    = RoundedCornerShape(14.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape    = RoundedCornerShape(50)
                     ) {
                         if (bookState is BookState.Loading) {
                             CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp,
@@ -318,30 +325,38 @@ fun BookingScreen(
         ) {
             doctor?.let { doc ->
                 item {
-                    Card(
-                        modifier = Modifier.fillMaxWidth().padding(16.dp),
-                        shape = RoundedCornerShape(16.dp)
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(Brush.linearGradient(EvaGradients.doctors))
+                            .padding(horizontal = 20.dp, vertical = 20.dp)
                     ) {
-                        Row(modifier = Modifier.padding(14.dp),
-                            verticalAlignment = Alignment.CenterVertically) {
-                            Surface(shape = RoundedCornerShape(12.dp),
-                                color = MaterialTheme.colorScheme.primaryContainer,
-                                modifier = Modifier.size(48.dp)) {
-                                Box(contentAlignment = Alignment.Center) {
-                                    Icon(Icons.Default.Person, null,
-                                        tint = MaterialTheme.colorScheme.primary,
-                                        modifier = Modifier.size(28.dp))
-                                }
-                            }
-                            Spacer(Modifier.width(12.dp))
-                            Column {
-                                Text(doc.fullName, fontWeight = FontWeight.SemiBold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            GradientIconBox(
+                                icon     = Icons.Default.Person,
+                                gradient = listOf(
+                                    Color.White.copy(alpha = 0.25f),
+                                    Color.White.copy(alpha = 0.10f)
+                                ),
+                                size     = 56.dp
+                            )
+                            Spacer(Modifier.width(14.dp))
+                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                                Text(doc.fullName,
+                                    style = EvaType.cardTitle,
+                                    color = Color.White)
                                 Text(doc.specializationName,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                                Text(doc.clinicName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                    style = EvaType.heroStatLabel,
+                                    color = Color.White.copy(alpha = 0.85f))
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Default.LocationOn, null,
+                                        tint     = Color.White.copy(alpha = 0.7f),
+                                        modifier = Modifier.size(11.dp))
+                                    Spacer(Modifier.width(2.dp))
+                                    Text(doc.clinicName,
+                                        style = EvaType.heroStatLabel,
+                                        color = Color.White.copy(alpha = 0.7f))
+                                }
                             }
                         }
                     }
@@ -377,8 +392,9 @@ fun BookingScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun BookingConfirmDialog(
+private fun BookingConfirmSheet(
     doctorName   : String,
     slot         : ScheduleResponse,
     notes        : String,
@@ -387,36 +403,69 @@ private fun BookingConfirmDialog(
     onConfirm    : () -> Unit,
     onDismiss    : () -> Unit
 ) {
-    AlertDialog(
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.booking_confirm_dialog_title), fontWeight = FontWeight.Bold) },
-        text  = {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stringResource(R.string.booking_confirm_doctor, doctorName))
-                Text(stringResource(R.string.booking_confirm_date, formatDate(slot.slotDate)))
-                Text(stringResource(R.string.booking_confirm_time, formatTime(slot.slotTime)))
-                Spacer(Modifier.height(10.dp))
-                OutlinedTextField(
-                    value         = notes,
-                    onValueChange = onNotesChange,
-                    label         = { Text(stringResource(R.string.label_note_optional)) },
-                    minLines      = 2,
-                    modifier      = Modifier.fillMaxWidth(),
-                    shape         = RoundedCornerShape(10.dp)
-                )
+        sheetState       = sheetState
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Text(stringResource(R.string.booking_confirm_dialog_title),
+                style = EvaType.sheetTitle)
+            HorizontalDivider()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Person, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.booking_confirm_doctor, doctorName),
+                    style = MaterialTheme.typography.bodyMedium)
             }
-        },
-        confirmButton = {
-            Button(onClick = onConfirm, enabled = bookState !is BookState.Loading) {
-                if (bookState is BookState.Loading)
-                    CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                else Text(stringResource(R.string.btn_book))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.CalendarToday, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.booking_confirm_date, formatDate(slot.slotDate)),
+                    style = MaterialTheme.typography.bodyMedium)
             }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(Icons.Default.Schedule, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
+                Text(stringResource(R.string.booking_confirm_time, formatTime(slot.slotTime)),
+                    style = MaterialTheme.typography.bodyMedium)
+            }
+            Spacer(Modifier.height(4.dp))
+            OutlinedTextField(
+                value         = notes,
+                onValueChange = onNotesChange,
+                label         = { Text(stringResource(R.string.label_note_optional)) },
+                minLines      = 2,
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(12.dp)
+            )
+            Button(
+                onClick  = onConfirm,
+                enabled  = bookState !is BookState.Loading,
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape    = RoundedCornerShape(50)
+            ) {
+                if (bookState is BookState.Loading) {
+                    CircularProgressIndicator(Modifier.size(18.dp), strokeWidth = 2.dp,
+                        color = Color.White)
+                } else {
+                    Text(stringResource(R.string.btn_book), fontWeight = FontWeight.SemiBold)
+                }
+            }
         }
-    )
+    }
 }
 
 @Composable
@@ -430,13 +479,8 @@ private fun DateSelectorRow(
     onLoadMore     : () -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Text(
-            stringResource(R.string.booking_select_date_label),
-            fontWeight = FontWeight.SemiBold,
-            style      = MaterialTheme.typography.titleSmall,
-            color      = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(10.dp))
+        SectionHeader(stringResource(R.string.booking_select_date_label))
+        Spacer(Modifier.height(6.dp))
         Row(
             modifier              = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
@@ -496,6 +540,42 @@ private fun DateSelectorRow(
 }
 
 @Composable
+private fun SlotChip(
+    slot       : ScheduleResponse,
+    isSelected : Boolean,
+    modifier   : Modifier = Modifier,
+    onClick    : () -> Unit
+) {
+    val bgColor by animateColorAsState(
+        targetValue   = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceVariant,
+        animationSpec = tween(200),
+        label         = "slotBg"
+    )
+    val textColor by animateColorAsState(
+        targetValue   = if (isSelected) Color.White
+                        else MaterialTheme.colorScheme.onSurface,
+        animationSpec = tween(200),
+        label         = "slotText"
+    )
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(10.dp))
+            .background(bgColor)
+            .clickable(onClick = onClick)
+            .padding(vertical = 11.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            formatTime(slot.slotTime),
+            fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+            color      = textColor,
+            style      = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
 private fun SlotGrid(
     date        : String,
     slots       : List<ScheduleResponse>,
@@ -504,20 +584,27 @@ private fun SlotGrid(
     onSelectSlot: (ScheduleResponse) -> Unit
 ) {
     Column(modifier = Modifier.padding(horizontal = 16.dp)) {
-        Text(
-            stringResource(R.string.booking_available_time, formatDateLabel(date)),
-            fontWeight = FontWeight.SemiBold,
-            style      = MaterialTheme.typography.titleSmall,
-            color      = MaterialTheme.colorScheme.primary
-        )
-        Spacer(Modifier.height(10.dp))
+        SectionHeader(stringResource(R.string.booking_available_time, formatDateLabel(date)))
+        Spacer(Modifier.height(6.dp))
 
         when {
-            isLoading -> Box(
-                Modifier.fillMaxWidth().padding(vertical = 16.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+            isLoading -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                repeat(2) {
+                    Row(
+                        modifier              = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        repeat(4) {
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(40.dp)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                            )
+                        }
+                    }
+                }
             }
             slots.isEmpty() -> Text(
                 stringResource(R.string.booking_no_slots_for_date),
@@ -530,31 +617,12 @@ private fun SlotGrid(
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     row.forEach { slot ->
-                        val isSel = selectedSlot?.scheduleId == slot.scheduleId
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .clip(RoundedCornerShape(10.dp))
-                                .background(
-                                    if (isSel) MaterialTheme.colorScheme.primary
-                                    else MaterialTheme.colorScheme.surfaceVariant
-                                )
-                                .border(
-                                    if (isSel) 0.dp else 1.dp,
-                                    MaterialTheme.colorScheme.outline.copy(alpha = 0.3f),
-                                    RoundedCornerShape(10.dp)
-                                )
-                                .clickable { onSelectSlot(slot) }
-                                .padding(vertical = 11.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                formatTime(slot.slotTime),
-                                fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                color      = if (isSel) Color.White else MaterialTheme.colorScheme.onSurface,
-                                style      = MaterialTheme.typography.bodyMedium
-                            )
-                        }
+                        SlotChip(
+                            slot       = slot,
+                            isSelected = selectedSlot?.scheduleId == slot.scheduleId,
+                            modifier   = Modifier.weight(1f),
+                            onClick    = { onSelectSlot(slot) }
+                        )
                     }
                     repeat(4 - row.size) { Spacer(Modifier.weight(1f)) }
                 }

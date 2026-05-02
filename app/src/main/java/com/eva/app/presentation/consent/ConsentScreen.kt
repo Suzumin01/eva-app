@@ -8,6 +8,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import com.eva.app.presentation.components.IconCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -132,8 +133,8 @@ fun ConsentScreen(
                     Button(
                         onClick  = { viewModel.save(medicalChecked, aiChecked, privacyChecked) { onDone() } },
                         enabled  = canProceed,
-                        modifier = Modifier.fillMaxWidth().height(52.dp),
-                        shape    = RoundedCornerShape(14.dp)
+                        modifier = Modifier.fillMaxWidth().height(56.dp),
+                        shape    = RoundedCornerShape(50)
                     ) {
                         Icon(Icons.Default.CheckCircle, null)
                         Spacer(Modifier.width(8.dp))
@@ -145,7 +146,7 @@ fun ConsentScreen(
                     OutlinedButton(
                         onClick  = { viewModel.save(false, false, false) { onDone() } },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
-                        shape    = RoundedCornerShape(14.dp)
+                        shape    = RoundedCornerShape(50)
                     ) {
                         Text(stringResource(R.string.consent_skip_btn))
                     }
@@ -167,17 +168,12 @@ fun ConsentScreen(
 
 @Composable
 fun ConsentItem(
-    icon: ImageVector, title: String, description: String,
+    icon: ImageVector,
+    title: String, description: String,
     checked: Boolean, onChecked: (Boolean) -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-        Surface(shape = RoundedCornerShape(10.dp),
-            color = MaterialTheme.colorScheme.primaryContainer, modifier = Modifier.size(40.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(icon, null, tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(20.dp))
-            }
-        }
+        IconCircle(icon, size = 40.dp)
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold,

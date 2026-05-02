@@ -1,10 +1,12 @@
 package com.eva.app.presentation.symptoms
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,9 +16,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -24,8 +28,16 @@ import androidx.lifecycle.viewModelScope
 import com.eva.app.R
 import com.eva.app.data.api.AnalyzeSymptomsResponse
 import com.eva.app.data.api.SymptomsHistoryResponse
+import com.eva.app.data.api.SymptomsQuotaResponse
 import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.SymptomsRepository
+import com.eva.app.presentation.components.AnimatedListItem
+import com.eva.app.presentation.components.EvaGradients
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.MedCardItemSkeleton
+import com.eva.app.presentation.components.SectionHeader
+import com.eva.app.presentation.components.StatusPill
+import com.eva.app.presentation.components.urgencyColor
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDate
@@ -52,6 +64,8 @@ class SymptomsViewModel @Inject constructor(
     val analyzing = _analyzing.asStateFlow()
     private val _analyzeError = MutableStateFlow<String?>(null)
     val analyzeError = _analyzeError.asStateFlow()
+    private val _quota        = MutableStateFlow<SymptomsQuotaResponse?>(null)
+    val quota = _quota.asStateFlow()
 
     val userId = tokenManager.userId
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -68,14 +82,24 @@ class SymptomsViewModel @Inject constructor(
                 else -> {}
             }
             _isLoading.value = false
+            loadQuota()
+        }
+    }
+
+    private fun loadQuota() {
+        viewModelScope.launch {
+            when (val r = repository.getQuota()) {
+                is Resource.Success -> _quota.value = r.data
+                else -> {}
+            }
         }
     }
 
     fun analyze(text: String, onDone: () -> Unit) {
         viewModelScope.launch {
-            _analyzing.value = true
+            _analyzing.value    = true
             _analyzeError.value = null
-            _result.value = null
+            _result.value       = null
             when (val r = repository.analyze(text)) {
                 is Resource.Success -> { _result.value = r.data; loadHistory(); onDone() }
                 is Resource.Error   -> _analyzeError.value = ErrorMapper.map(r.message)
@@ -88,6 +112,7 @@ class SymptomsViewModel @Inject constructor(
     fun clearError() { _analyzeError.value = null }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SymptomsScreen(
     onNewRequest: () -> Unit,
@@ -96,6 +121,7 @@ fun SymptomsScreen(
     val history   by viewModel.history.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val userId    by viewModel.userId.collectAsState(initial = null)
+    val quota     by viewModel.quota.collectAsState()
     var selected  by remember { mutableStateOf<SymptomsHistoryResponse?>(null) }
 
     LaunchedEffect(userId) {
@@ -104,85 +130,67 @@ fun SymptomsScreen(
     }
 
     selected?.let { item ->
-        val urgencyColor = when (item.aiResponse?.urgency) {
-            "emergency", "urgent" -> MaterialTheme.colorScheme.error
-            "normal"              -> MaterialTheme.colorScheme.primary
-            else                  -> Color(0xFF2E7D32)
-        }
-        val urgencyText = when (item.aiResponse?.urgency) {
-            "emergency" -> stringResource(R.string.urgency_emergency)
-            "urgent"    -> stringResource(R.string.urgency_urgent)
-            "normal"    -> stringResource(R.string.urgency_normal)
-            else        -> stringResource(R.string.urgency_low)
-        }
-        AlertDialog(
-            onDismissRequest = { selected = null },
-            title = { Text(stringResource(R.string.symptoms_result_dialog_title), fontWeight = FontWeight.Bold) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    Text(stringResource(R.string.symptoms_dialog_symptoms_label),
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.primary)
-                    Spacer(Modifier.height(4.dp))
-                    Text(item.symptomsText, style = MaterialTheme.typography.bodySmall)
-                    item.aiResponse?.let { ai ->
-                        Spacer(Modifier.height(12.dp))
-                        Text(urgencyText, color = urgencyColor, fontWeight = FontWeight.Bold)
-                        Spacer(Modifier.height(10.dp))
-                        Text(stringResource(R.string.medical_card_ai_assessment),
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        Text(ai.diagnosis, style = MaterialTheme.typography.bodySmall)
-                        Spacer(Modifier.height(10.dp))
-                        Text(stringResource(R.string.medical_card_ai_recommendations),
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        Text(ai.recommendations, style = MaterialTheme.typography.bodySmall)
-                    }
-                    Spacer(Modifier.height(8.dp))
-                    Text(formatDate(item.createdAt),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { selected = null }) {
-                    Text(stringResource(R.string.btn_close))
-                }
-            }
-        )
+        HistoryBottomSheet(item = item, onDismiss = { selected = null })
     }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(top = 14.dp, bottom = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween
+        ) {
+            Text(
+                stringResource(R.string.symptoms_history_title),
+                style = EvaType.screenTitle
+            )
+            quota?.let { q ->
+                Text(
+                    stringResource(R.string.symptoms_quota, q.used, q.limit),
+                    style = EvaType.cardMeta,
+                    color = if (q.remaining == 0)
+                        MaterialTheme.colorScheme.error
+                    else
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+        Box(modifier = Modifier.weight(1f)) {
         when {
-            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                CircularProgressIndicator()
+            isLoading -> LazyColumn(
+                modifier          = Modifier.fillMaxSize(),
+                contentPadding    = PaddingValues(bottom = 100.dp),
+                userScrollEnabled = false
+            ) {
+                items(6) { MedCardItemSkeleton() }
             }
             history.isEmpty() -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally,
-                    modifier = Modifier.padding(32.dp)) {
-                    Icon(Icons.Default.Psychology, null, modifier = Modifier.size(72.dp),
-                        tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier            = Modifier.padding(32.dp)
+                ) {
+                    Icon(Icons.Default.Psychology, null,
+                        modifier = Modifier.size(72.dp),
+                        tint     = MaterialTheme.colorScheme.primary.copy(alpha = 0.4f))
                     Spacer(Modifier.height(16.dp))
-                    Text(stringResource(R.string.symptoms_empty_title), fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.titleMedium)
+                    Text(stringResource(R.string.symptoms_empty_title),
+                        style = EvaType.cardTitle)
                     Text(stringResource(R.string.symptoms_empty_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        style    = EvaType.cardMeta,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.padding(top = 4.dp))
                 }
             }
             else -> LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 100.dp)
+                modifier       = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(top = 8.dp, bottom = 100.dp)
             ) {
-                items(history) { item ->
-                    HistoryItem(item = item, onClick = { selected = item })
-                    HorizontalDivider(modifier = Modifier.padding(horizontal = 4.dp))
+                itemsIndexed(history, key = { _, it -> it.requestId }) { index, item ->
+                    AnimatedListItem(index = index) {
+                        HistoryCard(item = item, onClick = { selected = item })
+                    }
                 }
             }
         }
@@ -195,17 +203,14 @@ fun SymptomsScreen(
             contentColor   = Color.White,
             modifier       = Modifier.align(Alignment.BottomEnd).padding(20.dp)
         )
-    }
+        } // Box
+    } // Column
 }
 
 @Composable
-fun HistoryItem(item: SymptomsHistoryResponse, onClick: () -> Unit) {
+fun HistoryCard(item: SymptomsHistoryResponse, onClick: () -> Unit) {
     val urgency = item.aiResponse?.urgency
-    val urgencyColor = when (urgency) {
-        "emergency", "urgent" -> Color(0xFFE53935)
-        "normal"              -> Color(0xFF1565C0)
-        else                  -> Color(0xFF2E7D32)
-    }
+    val color   = urgencyColor(urgency)
     val urgencyLabel = when (urgency) {
         "emergency" -> stringResource(R.string.urgency_emergency)
         "urgent"    -> stringResource(R.string.urgency_urgent)
@@ -214,43 +219,111 @@ fun HistoryItem(item: SymptomsHistoryResponse, onClick: () -> Unit) {
         else        -> null
     }
 
-    Row(
-        modifier = Modifier
+    Card(
+        onClick   = onClick,
+        modifier  = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = 12.dp),
-        verticalAlignment = Alignment.Top
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Surface(shape = RoundedCornerShape(14.dp), color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(46.dp)) {
-            Box(contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.Psychology, null, tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(24.dp))
-            }
-        }
-        Spacer(Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Row(modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Text(stringResource(R.string.symptoms_item_title), fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium)
-                Text(formatDate(item.createdAt), style = MaterialTheme.typography.labelSmall,
+        Column(modifier = Modifier.padding(14.dp)) {
+            val cardTitle = item.aiResponse?.title?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.symptoms_item_title)
+            Text(cardTitle, style = EvaType.cardTitle, maxLines = 1)
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(formatDate(item.createdAt),
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Spacer(Modifier.height(2.dp))
-            Text(item.symptomsText, maxLines = 1, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            item.aiResponse?.let { ai ->
-                Spacer(Modifier.height(3.dp))
-                Text(ai.diagnosis, maxLines = 1, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
+                urgencyLabel?.let {
+                    Spacer(Modifier.width(8.dp))
+                    StatusPill(it, color)
+                }
             }
         }
-        urgencyLabel?.let {
-            Spacer(Modifier.width(8.dp))
-            Text(it, style = MaterialTheme.typography.labelSmall,
-                color = urgencyColor, fontWeight = FontWeight.SemiBold)
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun HistoryBottomSheet(item: SymptomsHistoryResponse, onDismiss: () -> Unit) {
+    val urgency    = item.aiResponse?.urgency
+    val color      = urgencyColor(urgency)
+    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val urgencyText = when (urgency) {
+        "emergency" -> stringResource(R.string.urgency_emergency)
+        "urgent"    -> stringResource(R.string.urgency_urgent)
+        "normal"    -> stringResource(R.string.urgency_normal)
+        else        -> stringResource(R.string.urgency_low)
+    }
+
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState       = sheetState
+    ) {
+        Column(
+            modifier            = Modifier
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 36.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            val sheetTitle = item.aiResponse?.title?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.symptoms_result_dialog_title)
+            Text(sheetTitle,
+                style     = EvaType.sheetTitle,
+                textAlign = TextAlign.Center)
+            Spacer(Modifier.height(8.dp))
+            StatusPill(urgencyText, color)
+
+            Spacer(Modifier.height(20.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(16.dp))
+
+            SectionHeader(
+                stringResource(R.string.symptoms_dialog_symptoms_label),
+                modifier = Modifier.fillMaxWidth()
+            )
+            Spacer(Modifier.height(6.dp))
+            Text(item.symptomsText,
+                style    = EvaType.bodyText,
+                modifier = Modifier.fillMaxWidth())
+
+            item.aiResponse?.let { ai ->
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(16.dp))
+
+                SectionHeader(
+                    stringResource(R.string.medical_card_ai_assessment),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(ai.diagnosis,
+                    style    = EvaType.bodyText,
+                    modifier = Modifier.fillMaxWidth())
+
+                Spacer(Modifier.height(16.dp))
+                SectionHeader(
+                    stringResource(R.string.medical_card_ai_recommendations),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(ai.recommendations,
+                    style    = EvaType.bodyText,
+                    modifier = Modifier.fillMaxWidth())
+            }
+
+            Spacer(Modifier.height(16.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(10.dp))
+            Text(formatDate(item.createdAt),
+                style    = EvaType.cardMeta,
+                color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.fillMaxWidth())
         }
     }
 }
@@ -269,35 +342,37 @@ fun SymptomsFormScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.symptoms_form_screen_title)) },
+                title = {},
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
             )
         }
     ) { padding ->
-        Column(modifier = Modifier
-            .padding(padding)
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(20.dp)) {
-
-            Card(colors = CardDefaults.cardColors(
-                containerColor = MaterialTheme.colorScheme.primaryContainer),
-                shape = RoundedCornerShape(14.dp)) {
-                Row(modifier = Modifier.padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AutoAwesome, null,
-                        tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(24.dp))
-                    Spacer(Modifier.width(10.dp))
-                    Text(stringResource(R.string.symptoms_form_disclaimer),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer)
-                }
+        Column(
+            modifier = Modifier
+                .padding(padding)
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(20.dp)
+        ) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(14.dp))
+                    .background(MaterialTheme.colorScheme.primaryContainer)
+                    .padding(14.dp),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(Icons.Default.AutoAwesome, null,
+                    tint     = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp).padding(top = 1.dp))
+                Spacer(Modifier.width(10.dp))
+                Text(stringResource(R.string.symptoms_form_disclaimer),
+                    style = EvaType.cardMeta,
+                    color = MaterialTheme.colorScheme.onPrimaryContainer)
             }
 
             Spacer(Modifier.height(20.dp))
@@ -316,23 +391,23 @@ fun SymptomsFormScreen(
                     val hint = if (text.length < 20) minCharsHint else ""
                     Text("${text.length} / 5000$hint",
                         color = if (text.length < 20) MaterialTheme.colorScheme.error
-                        else MaterialTheme.colorScheme.onSurfaceVariant)
+                                else MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             )
 
             error?.let {
                 Spacer(Modifier.height(12.dp))
-                Card(colors = CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.errorContainer),
-                    shape = RoundedCornerShape(12.dp)) {
-                    Row(modifier = Modifier.padding(12.dp),
-                        verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.ErrorOutline, null,
-                            tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(8.dp))
-                        Text(it, color = MaterialTheme.colorScheme.onErrorContainer,
-                            style = MaterialTheme.typography.bodySmall)
-                    }
+                Row(
+                    modifier          = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Default.ErrorOutline, null,
+                        tint     = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.size(18.dp))
+                    Spacer(Modifier.width(8.dp))
+                    Text(it,
+                        color = MaterialTheme.colorScheme.error,
+                        style = EvaType.cardMeta)
                 }
             }
 
@@ -341,8 +416,8 @@ fun SymptomsFormScreen(
             Button(
                 onClick  = { viewModel.analyze(text) { onResult() } },
                 enabled  = text.length >= 20 && !analyzing,
-                modifier = Modifier.fillMaxWidth().height(54.dp),
-                shape    = RoundedCornerShape(14.dp)
+                modifier = Modifier.fillMaxWidth().height(56.dp),
+                shape    = RoundedCornerShape(50)
             ) {
                 if (analyzing) {
                     CircularProgressIndicator(modifier = Modifier.size(20.dp),
@@ -352,7 +427,8 @@ fun SymptomsFormScreen(
                 } else {
                     Icon(Icons.Default.AutoAwesome, null)
                     Spacer(Modifier.width(8.dp))
-                    Text(stringResource(R.string.symptoms_btn_analyze), fontWeight = FontWeight.SemiBold)
+                    Text(stringResource(R.string.symptoms_btn_analyze),
+                        fontWeight = FontWeight.SemiBold)
                 }
             }
         }
@@ -369,143 +445,131 @@ fun SymptomsResultScreen(
     val result by viewModel.result.collectAsState()
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(stringResource(R.string.symptoms_result_screen_title)) },
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor             = MaterialTheme.colorScheme.primary,
-                    titleContentColor          = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
-            )
+        bottomBar = {
+            result?.specializationName?.let { specName ->
+                Surface(shadowElevation = 4.dp) {
+                    Box(Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
+                        .navigationBarsPadding()
+                    ) {
+                        Button(
+                            onClick  = { onFindDoctor(specName) },
+                            modifier = Modifier.fillMaxWidth().height(56.dp),
+                            shape    = RoundedCornerShape(50)
+                        ) {
+                            Icon(Icons.Default.Search, null, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.symptoms_result_find_doctor_btn, specName),
+                                fontWeight = FontWeight.SemiBold)
+                        }
+                    }
+                }
+            }
         }
     ) { padding ->
         result?.let { r ->
-            val urgencyColor = when (r.urgency) {
-                "emergency", "urgent" -> Color(0xFFB71C1C)
-                "normal"              -> Color(0xFF1565C0)
-                else                  -> Color(0xFF2E7D32)
-            }
+            val color = urgencyColor(r.urgency)
             val urgencyText = when (r.urgency) {
                 "emergency" -> stringResource(R.string.symptoms_urgency_emergency_full)
                 "urgent"    -> stringResource(R.string.symptoms_urgency_urgent_full)
                 "normal"    -> stringResource(R.string.symptoms_urgency_normal_full)
                 else        -> stringResource(R.string.symptoms_urgency_low_full)
             }
+            val heroGradient = when (r.urgency) {
+                "emergency", "urgent" -> EvaGradients.danger
+                "normal"              -> EvaGradients.doctors
+                else                  -> EvaGradients.ai
+            }
 
-            LazyColumn(
-                modifier       = Modifier.padding(padding),
-                contentPadding = PaddingValues(16.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
-                item {
-                    Card(colors = CardDefaults.cardColors(
-                        containerColor = urgencyColor.copy(alpha = 0.1f)),
-                        shape = RoundedCornerShape(14.dp)) {
-                        Row(modifier = Modifier.padding(14.dp)) {
-                            Text(urgencyText, color = urgencyColor,
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.bodyMedium)
+            Box(Modifier.fillMaxSize()) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(bottom = padding.calculateBottomPadding())
+                        .verticalScroll(rememberScrollState())
+                ) {
+                    Column(
+                        modifier            = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                            .background(Brush.linearGradient(heroGradient))
+                            .statusBarsPadding()
+                            .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        Text(urgencyText,
+                            style     = EvaType.heroTitle,
+                            color     = Color.White,
+                            textAlign = TextAlign.Center)
+                        r.specializationName?.let { specName ->
+                            Spacer(Modifier.height(6.dp))
+                            Text(specName,
+                                style = EvaType.heroSub,
+                                color = Color.White.copy(alpha = 0.85f))
                         }
                     }
-                }
-                item { ResultCard(stringResource(R.string.symptoms_result_diagnosis_title), r.diagnosis) }
-                item { ResultCard(stringResource(R.string.symptoms_result_recommendations_title), r.recommendations) }
-                item {
-                    Card(shape = RoundedCornerShape(14.dp),
-                        colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.surfaceVariant)) {
-                        Column(modifier = Modifier.padding(14.dp)) {
-                            Text(stringResource(R.string.symptoms_result_accuracy_title),
-                                fontWeight = FontWeight.SemiBold,
-                                style = MaterialTheme.typography.labelLarge)
-                            Spacer(Modifier.height(8.dp))
-                            val pct = r.confidence.toFloatOrNull() ?: 0f
-                            LinearProgressIndicator(
-                                progress   = { pct },
-                                modifier   = Modifier.fillMaxWidth().height(8.dp)
-                                    .clip(RoundedCornerShape(4.dp)),
-                                color      = MaterialTheme.colorScheme.primary,
-                                trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                            )
-                            Spacer(Modifier.height(4.dp))
-                            Text("${(pct * 100).toInt()}%",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = MaterialTheme.colorScheme.primary)
-                        }
-                    }
-                }
-                item {
-                    Card(colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                        shape = RoundedCornerShape(14.dp)) {
-                        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-                            Icon(Icons.Default.Info, null, modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.onTertiaryContainer)
-                            Spacer(Modifier.width(8.dp))
-                            Text(r.disclaimer, style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onTertiaryContainer)
-                        }
-                    }
-                }
-                r.specializationName?.let { specName ->
-                    item {
-                        Card(
-                            colors   = CardDefaults.cardColors(
-                                containerColor = MaterialTheme.colorScheme.primaryContainer),
-                            shape    = RoundedCornerShape(14.dp),
-                            modifier = Modifier.fillMaxWidth()
+
+                    Column(modifier = Modifier.padding(20.dp)) {
+                        SectionHeader(stringResource(R.string.symptoms_result_diagnosis_title))
+                        Spacer(Modifier.height(8.dp))
+                        Text(r.diagnosis, style = EvaType.bodyText)
+
+                        Spacer(Modifier.height(20.dp))
+                        SectionHeader(stringResource(R.string.symptoms_result_recommendations_title))
+                        Spacer(Modifier.height(8.dp))
+                        Text(r.recommendations, style = EvaType.bodyText)
+
+                        Spacer(Modifier.height(24.dp))
+                        val pct = r.confidence.toFloatOrNull() ?: 0f
+                        Row(
+                            modifier              = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment     = Alignment.CenterVertically
                         ) {
-                            Column(modifier = Modifier.padding(16.dp)) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(Icons.Default.MedicalServices, null,
-                                        modifier = Modifier.size(20.dp),
-                                        tint     = MaterialTheme.colorScheme.primary)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.symptoms_result_spec_label),
-                                        fontWeight = FontWeight.SemiBold,
-                                        style      = MaterialTheme.typography.labelLarge,
-                                        color      = MaterialTheme.colorScheme.primary)
-                                }
-                                Spacer(Modifier.height(6.dp))
-                                Text(specName,
-                                    fontWeight = FontWeight.Bold,
-                                    style      = MaterialTheme.typography.titleMedium,
-                                    color      = MaterialTheme.colorScheme.onPrimaryContainer)
-                                Spacer(Modifier.height(12.dp))
-                                Button(
-                                    onClick  = { onFindDoctor(specName) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape    = RoundedCornerShape(10.dp)
-                                ) {
-                                    Icon(Icons.Default.Search, null, Modifier.size(18.dp))
-                                    Spacer(Modifier.width(8.dp))
-                                    Text(stringResource(R.string.symptoms_result_find_doctor_btn, specName))
-                                }
-                            }
+                            Text(stringResource(R.string.symptoms_result_accuracy_title),
+                                style = EvaType.cardSub,
+                                fontWeight = FontWeight.SemiBold)
+                            Text("${(pct * 100).toInt()}%",
+                                style      = EvaType.cardSub,
+                                color      = color,
+                                fontWeight = FontWeight.Bold)
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        LinearProgressIndicator(
+                            progress   = { pct },
+                            modifier   = Modifier.fillMaxWidth().height(6.dp)
+                                .clip(RoundedCornerShape(3.dp)),
+                            color      = color,
+                            trackColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
+                        )
+
+                        Spacer(Modifier.height(16.dp))
+                        Row(verticalAlignment = Alignment.Top) {
+                            Icon(Icons.Default.Info, null,
+                                modifier = Modifier.size(14.dp).padding(top = 2.dp),
+                                tint     = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Spacer(Modifier.width(6.dp))
+                            Text(r.disclaimer,
+                                style = EvaType.cardMeta,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
+                }
+
+                IconButton(
+                    onClick  = onBack,
+                    modifier = Modifier.statusBarsPadding().padding(4.dp)
+                ) {
+                    Icon(Icons.Default.ArrowBack, null, tint = Color.White)
                 }
             }
-        } ?: Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        } ?: Box(
+            modifier         = Modifier.fillMaxSize().padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
             Text(stringResource(R.string.symptoms_result_unavailable),
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-fun ResultCard(title: String, content: String) {
-    Card(shape = RoundedCornerShape(14.dp), modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Text(title, fontWeight = FontWeight.Bold,
-                style = MaterialTheme.typography.titleSmall,
-                color = MaterialTheme.colorScheme.primary)
-            Spacer(Modifier.height(8.dp))
-            Text(content, style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.85f))
         }
     }
 }

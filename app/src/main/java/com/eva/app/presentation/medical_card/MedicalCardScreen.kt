@@ -1,10 +1,13 @@
 package com.eva.app.presentation.medical_card
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,11 +17,11 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -32,6 +35,12 @@ import com.eva.app.data.repository.AppointmentRepository
 import com.eva.app.data.repository.DocumentRepository
 import com.eva.app.data.repository.SymptomsRepository
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.AnimatedListItem
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.MedCardItemSkeleton
+import com.eva.app.presentation.components.SectionHeader
+import com.eva.app.presentation.components.StatusPill
+import com.eva.app.presentation.components.urgencyColor
 import com.eva.app.util.formatDate
 import com.eva.app.util.formatTime
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -127,10 +136,10 @@ fun MedicalCardScreen(
     val snackbar         = remember { SnackbarHostState() }
     val context          = LocalContext.current
 
-    var tab                  by remember { mutableStateOf(0) }
-    var selectedAppointment  by remember { mutableStateOf<AppointmentResponse?>(null) }
-    var selectedSymptom      by remember { mutableStateOf<SymptomsHistoryResponse?>(null) }
-    var showDeleteDocDialog  by remember { mutableStateOf<DocumentResponse?>(null) }
+    var tab                 by remember { mutableStateOf(0) }
+    var selectedAppointment by remember { mutableStateOf<AppointmentResponse?>(null) }
+    var selectedSymptom     by remember { mutableStateOf<SymptomsHistoryResponse?>(null) }
+    var showDeleteDocDialog by remember { mutableStateOf<DocumentResponse?>(null) }
 
     LaunchedEffect(uploadError) {
         uploadError?.let { snackbar.showSnackbar(it); viewModel.clearUploadError() }
@@ -141,157 +150,154 @@ fun MedicalCardScreen(
         }
     }
 
-    // Диалог деталей приёма
     selectedAppointment?.let { a ->
-        AlertDialog(
+        ModalBottomSheet(
             onDismissRequest = { selectedAppointment = null },
-            icon = {
-                Surface(shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.primaryContainer,
-                    modifier = Modifier.size(52.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.MedicalServices, null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(28.dp))
+            sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 36.dp)
+            ) {
+                Text(a.doctorName, style = EvaType.sheetTitle)
+                Spacer(Modifier.height(4.dp))
+                Text(a.specializationName,
+                    style = EvaType.cardSub,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(14.dp))
+
+                Row(
+                    modifier              = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        MedSheetInfoRow(stringResource(R.string.label_date),
+                            formatDate(a.slotDate))
+                        Spacer(Modifier.height(12.dp))
+                        MedSheetInfoRow(stringResource(R.string.label_time),
+                            formatTime(a.slotTime))
+                    }
+                    Column(modifier = Modifier.weight(1f)) {
+                        MedSheetInfoRow(stringResource(R.string.label_clinic), a.clinicName)
+                        Spacer(Modifier.height(12.dp))
+                        MedSheetInfoRow(stringResource(R.string.label_address), a.clinicAddress)
                     }
                 }
-            },
-            title = { Text(a.doctorName, fontWeight = FontWeight.Bold) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    MedCardDetailRow(Icons.Default.LocalHospital,
-                        stringResource(R.string.medical_card_appt_specialization), a.specializationName)
-                    MedCardDetailRow(Icons.Default.Business,
-                        stringResource(R.string.medical_card_appt_clinic), a.clinicName)
-                    MedCardDetailRow(Icons.Default.LocationOn,
-                        stringResource(R.string.medical_card_appt_address), a.clinicAddress)
-                    MedCardDetailRow(Icons.Default.CalendarMonth,
-                        stringResource(R.string.medical_card_appt_date),
-                        "${formatDate(a.slotDate)}  ${formatTime(a.slotTime)}")
-                    MedCardDetailRow(Icons.Default.Timer,
-                        stringResource(R.string.medical_card_appt_duration),
-                        stringResource(R.string.duration_minutes_dot, a.durationMinutes))
-                    HorizontalDivider()
-                    Card(colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.primaryContainer),
-                        shape = RoundedCornerShape(12.dp)) {
-                        Column(modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                            Text(stringResource(R.string.medical_card_appt_result),
-                                fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.colorScheme.primary)
-                            if (!a.doctorConclusion.isNullOrBlank()) {
-                                Text(a.doctorConclusion, style = MaterialTheme.typography.bodySmall)
-                            } else if (a.notes != null) {
-                                Text(a.notes, style = MaterialTheme.typography.bodySmall)
-                            } else {
-                                Text(stringResource(R.string.medical_card_conclusion_empty),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            }
-                        }
-                    }
-                    Text(stringResource(R.string.medical_card_created_at, formatDate(a.createdAt)),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-            },
-            confirmButton = {
-                Button(onClick = { selectedAppointment = null }) {
-                    Text(stringResource(R.string.btn_close))
-                }
+
+                Spacer(Modifier.height(14.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(14.dp))
+
+                SectionHeader(
+                    stringResource(R.string.medical_card_appt_result),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(
+                    a.doctorConclusion?.takeIf { it.isNotBlank() }
+                        ?: a.notes?.takeIf { it.isNotBlank() }
+                        ?: stringResource(R.string.medical_card_conclusion_empty),
+                    style = EvaType.bodyText,
+                    color = if (a.doctorConclusion.isNullOrBlank() && a.notes.isNullOrBlank())
+                        MaterialTheme.colorScheme.onSurfaceVariant
+                    else
+                        MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(Modifier.height(14.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(10.dp))
+                Text(stringResource(R.string.medical_card_created_at, formatDate(a.createdAt)),
+                    style = EvaType.cardMeta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-        )
+        }
     }
 
-    // Диалог деталей AI-анализа
     selectedSymptom?.let { item ->
-        AlertDialog(
+        val urgency = item.aiResponse?.urgency
+        val urgencyColor = urgencyColor(urgency)
+        val urgencyText = when (urgency) {
+            "emergency" -> stringResource(R.string.urgency_emergency)
+            "urgent"    -> stringResource(R.string.urgency_urgent)
+            "normal"    -> stringResource(R.string.urgency_normal)
+            else        -> stringResource(R.string.urgency_low)
+        }
+
+        ModalBottomSheet(
             onDismissRequest = { selectedSymptom = null },
-            icon = {
-                Surface(shape = RoundedCornerShape(12.dp),
-                    color = MaterialTheme.colorScheme.secondaryContainer,
-                    modifier = Modifier.size(52.dp)) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(Icons.Default.Psychology, null,
-                            tint = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.size(28.dp))
-                    }
-                }
-            },
-            title = { Text(stringResource(R.string.medical_card_ai_dialog_title),
-                fontWeight = FontWeight.Bold) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text(stringResource(R.string.medical_card_ai_date, formatDate(item.createdAt)),
-                        style = MaterialTheme.typography.labelSmall,
+            sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier            = Modifier
+                    .fillMaxWidth()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 36.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                val sheetTitle = item.aiResponse?.title?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.medical_card_ai_dialog_title)
+                Text(sheetTitle,
+                    style = EvaType.sheetTitle)
+                Spacer(Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(formatDate(item.createdAt),
+                        style = EvaType.cardMeta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Card(colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                        shape = RoundedCornerShape(10.dp)) {
-                        Column(modifier = Modifier.padding(10.dp)) {
-                            Text(stringResource(R.string.medical_card_ai_symptoms_desc),
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant)
-                            Spacer(Modifier.height(4.dp))
-                            Text(item.symptomsText, style = MaterialTheme.typography.bodySmall)
-                        }
-                    }
-                    item.aiResponse?.let { ai ->
-                        val urgencyColor = when (ai.urgency) {
-                            "emergency", "urgent" -> MaterialTheme.colorScheme.error
-                            "normal"              -> MaterialTheme.colorScheme.primary
-                            else                  -> Color(0xFF2E7D32)
-                        }
-                        val urgencyText = when (ai.urgency) {
-                            "emergency" -> stringResource(R.string.urgency_emergency)
-                            "urgent"    -> stringResource(R.string.urgency_urgent)
-                            "normal"    -> stringResource(R.string.urgency_normal)
-                            else        -> stringResource(R.string.urgency_low)
-                        }
-                        Text(urgencyText, color = urgencyColor, fontWeight = FontWeight.Bold)
-                        Card(colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.primaryContainer),
-                            shape = RoundedCornerShape(10.dp)) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(stringResource(R.string.medical_card_ai_assessment),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.primary)
-                                Spacer(Modifier.height(4.dp))
-                                Text(ai.diagnosis, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        Card(colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.tertiaryContainer),
-                            shape = RoundedCornerShape(10.dp)) {
-                            Column(modifier = Modifier.padding(10.dp)) {
-                                Text(stringResource(R.string.medical_card_ai_recommendations),
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.tertiary)
-                                Spacer(Modifier.height(4.dp))
-                                Text(ai.recommendations, style = MaterialTheme.typography.bodySmall)
-                            }
-                        }
-                        val pct = ((ai.confidence.toFloatOrNull() ?: 0f) * 100).toInt()
-                        Text(stringResource(R.string.medical_card_ai_accuracy, pct),
-                            style = MaterialTheme.typography.labelSmall,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.primary)
+                    if (item.aiResponse != null) {
+                        Spacer(Modifier.width(8.dp))
+                        StatusPill(urgencyText, urgencyColor)
                     }
                 }
-            },
-            confirmButton = {
-                Button(onClick = { selectedSymptom = null }) {
-                    Text(stringResource(R.string.btn_close))
+
+                Spacer(Modifier.height(16.dp))
+                HorizontalDivider()
+                Spacer(Modifier.height(14.dp))
+
+                SectionHeader(
+                    stringResource(R.string.medical_card_ai_symptoms_desc),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(Modifier.height(6.dp))
+                Text(item.symptomsText,
+                    style    = EvaType.bodyText,
+                    modifier = Modifier.fillMaxWidth())
+
+                item.aiResponse?.let { ai ->
+                    Spacer(Modifier.height(16.dp))
+                    HorizontalDivider()
+                    Spacer(Modifier.height(14.dp))
+
+                    SectionHeader(
+                        stringResource(R.string.medical_card_ai_assessment),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(ai.diagnosis,
+                        style    = EvaType.bodyText,
+                        modifier = Modifier.fillMaxWidth())
+
+                    Spacer(Modifier.height(16.dp))
+                    SectionHeader(
+                        stringResource(R.string.medical_card_ai_recommendations),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(Modifier.height(6.dp))
+                    Text(ai.recommendations,
+                        style    = EvaType.bodyText,
+                        modifier = Modifier.fillMaxWidth())
                 }
             }
-        )
+        }
     }
 
-    // Диалог удаления документа
     showDeleteDocDialog?.let { doc ->
         AlertDialog(
             onDismissRequest = { showDeleteDocDialog = null },
@@ -300,11 +306,8 @@ fun MedicalCardScreen(
             confirmButton = {
                 Button(
                     onClick = { viewModel.deleteDocument(doc.documentId); showDeleteDocDialog = null },
-                    colors  = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text(stringResource(R.string.btn_delete))
-                }
+                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text(stringResource(R.string.btn_delete)) }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteDocDialog = null }) {
@@ -318,14 +321,17 @@ fun MedicalCardScreen(
         snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.medical_card_screen_title)) },
+                title = {
+                    Text(stringResource(R.string.profile_menu_medical_card),
+                        style = EvaType.cardTitle)
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
                 },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimary,
-                    navigationIconContentColor = MaterialTheme.colorScheme.onPrimary)
+                windowInsets = WindowInsets(0),
+                colors       = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.surface
+                )
             )
         }
     ) { padding ->
@@ -348,18 +354,19 @@ fun MedicalCardScreen(
                 }
 
                 when {
-                    isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                        CircularProgressIndicator()
+                    isLoading -> LazyColumn(userScrollEnabled = false) {
+                        items(5) { MedCardItemSkeleton() }
                     }
                     tab == 0 -> {
                         if (appointments.isEmpty()) {
                             MedCardEmpty(Icons.Default.EventNote,
                                 stringResource(R.string.medical_card_no_appointments))
                         } else {
-                            LazyColumn(contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(appointments, key = { it.appointmentId }) { a ->
-                                    AppointmentMedCard(a) { selectedAppointment = a }
+                            LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+                                itemsIndexed(appointments, key = { _, a -> a.appointmentId }) { index, a ->
+                                    AnimatedListItem(index = index) {
+                                        AppointmentMedCard(a) { selectedAppointment = a }
+                                    }
                                 }
                             }
                         }
@@ -376,10 +383,11 @@ fun MedicalCardScreen(
                             MedCardEmpty(Icons.Default.Psychology,
                                 stringResource(R.string.medical_card_no_ai))
                         } else {
-                            LazyColumn(contentPadding = PaddingValues(16.dp),
-                                verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                items(symptomsHistory, key = { it.requestId }) { item ->
-                                    SymptomMedCard(item) { selectedSymptom = item }
+                            LazyColumn(contentPadding = PaddingValues(vertical = 8.dp)) {
+                                itemsIndexed(symptomsHistory, key = { _, it -> it.requestId }) { index, item ->
+                                    AnimatedListItem(index = index) {
+                                        SymptomMedCard(item) { selectedSymptom = item }
+                                    }
                                 }
                             }
                         }
@@ -392,35 +400,40 @@ fun MedicalCardScreen(
 
 @Composable
 fun AppointmentMedCard(a: AppointmentResponse, onClick: () -> Unit) {
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-            Surface(shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.primaryContainer,
-                modifier = Modifier.size(48.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.MedicalServices, null,
-                        tint = MaterialTheme.colorScheme.primary,
-                        modifier = Modifier.size(26.dp))
-                }
+    Card(
+        onClick   = onClick,
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier          = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier         = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF1565C0).copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.MedicalServices, null,
+                    tint     = Color(0xFF1565C0),
+                    modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(a.doctorName, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium)
-                Text(a.specializationName, style = MaterialTheme.typography.bodySmall,
+                Text(a.doctorName, style = EvaType.cardTitle)
+                Spacer(Modifier.height(2.dp))
+                Text(a.specializationName,
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.primary)
-                Spacer(Modifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CalendarMonth, null, modifier = Modifier.size(13.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text("${formatDate(a.slotDate)}  ${formatTime(a.slotTime)}",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                Text(a.clinicName, style = MaterialTheme.typography.labelSmall,
+                Spacer(Modifier.height(2.dp))
+                Text("${formatDate(a.slotDate)}, ${formatTime(a.slotTime)}",
+                    style = EvaType.cardMeta,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Icon(Icons.Default.ChevronRight, null,
@@ -432,80 +445,38 @@ fun AppointmentMedCard(a: AppointmentResponse, onClick: () -> Unit) {
 @Composable
 fun SymptomMedCard(item: SymptomsHistoryResponse, onClick: () -> Unit) {
     val urgency = item.aiResponse?.urgency
-    val urgencyColor = when (urgency) {
-        "emergency", "urgent" -> MaterialTheme.colorScheme.error
-        "normal"              -> MaterialTheme.colorScheme.primary
-        else                  -> Color(0xFF2E7D32)
-    }
+    val color = urgencyColor(urgency)
     val urgencyLabel = when (urgency) {
         "emergency" -> stringResource(R.string.urgency_emergency)
         "urgent"    -> stringResource(R.string.urgency_urgent)
         "normal"    -> stringResource(R.string.urgency_normal)
-        else        -> stringResource(R.string.urgency_low)
+        "low"       -> stringResource(R.string.urgency_low)
+        else        -> null
     }
-    Card(modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-            Surface(shape = RoundedCornerShape(12.dp),
-                color = MaterialTheme.colorScheme.secondaryContainer,
-                modifier = Modifier.size(48.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Psychology, null,
-                        tint = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.size(26.dp))
+
+    Card(
+        onClick   = onClick,
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Column(modifier = Modifier.padding(14.dp)) {
+            val cardTitle = item.aiResponse?.title?.takeIf { it.isNotBlank() }
+                ?: stringResource(R.string.symptoms_item_title)
+            Text(cardTitle, style = EvaType.cardTitle, maxLines = 1)
+            Spacer(Modifier.height(3.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(formatDate(item.createdAt),
+                    style = EvaType.cardMeta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                urgencyLabel?.let {
+                    Spacer(Modifier.width(8.dp))
+                    StatusPill(it, color)
                 }
             }
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f)) {
-                Row(modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(stringResource(R.string.medical_card_ai_card_title),
-                        fontWeight = FontWeight.SemiBold,
-                        style = MaterialTheme.typography.bodyMedium)
-                    Text(urgencyLabel, style = MaterialTheme.typography.labelSmall,
-                        color = urgencyColor, fontWeight = FontWeight.SemiBold)
-                }
-                Text(item.symptomsText, maxLines = 1,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-                item.aiResponse?.let {
-                    Text(it.diagnosis, maxLines = 1,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.7f))
-                }
-                Spacer(Modifier.height(2.dp))
-                Text(formatDate(item.createdAt), style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Icon(Icons.Default.ChevronRight, null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        }
-    }
-}
-
-@Composable
-fun MedCardDetailRow(icon: ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, modifier = Modifier.size(15.dp),
-            tint = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(8.dp))
-        Text("$label: ", style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-    }
-}
-
-@Composable
-fun MedCardEmpty(icon: ImageVector, text: String) {
-    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.padding(32.dp)) {
-            Icon(icon, null, modifier = Modifier.size(64.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
-            Spacer(Modifier.height(12.dp))
-            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -526,9 +497,11 @@ fun DocumentsTab(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        OutlinedButton(
+        FilledTonalButton(
             onClick  = { showUploadDialog = true },
-            modifier = Modifier.fillMaxWidth().padding(16.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
             shape    = RoundedCornerShape(12.dp)
         ) {
             Icon(Icons.Default.Upload, null, modifier = Modifier.size(18.dp))
@@ -537,13 +510,9 @@ fun DocumentsTab(
         }
 
         if (documents.isEmpty()) {
-            MedCardEmpty(Icons.Default.Description,
-                stringResource(R.string.documents_empty))
+            MedCardEmpty(Icons.Default.Description, stringResource(R.string.documents_empty))
         } else {
-            LazyColumn(
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp),
-                verticalArrangement = Arrangement.spacedBy(10.dp)
-            ) {
+            LazyColumn {
                 items(documents, key = { it.documentId }) { doc ->
                     DocumentCard(doc = doc, onDelete = { onDelete(doc) })
                 }
@@ -553,18 +522,22 @@ fun DocumentsTab(
     }
 }
 
-private val DocumentResponse.formattedSize: String get() = when {
-    fileSize < 1024        -> "$fileSize Б"
-    fileSize < 1024 * 1024 -> "${fileSize / 1024} КБ"
-    else                   -> "${fileSize / (1024 * 1024)} МБ"
-}
-
 @Composable
 fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
-    val (icon, color) = when {
-        doc.fileType.contains("pdf", true)   -> Icons.Default.PictureAsPdf to Color(0xFFD32F2F)
-        doc.fileType.contains("image", true) -> Icons.Default.Image to Color(0xFF1565C0)
-        else                                  -> Icons.Default.Description to Color(0xFF616161)
+    val formattedSize = when {
+        doc.fileSize < 1024        -> stringResource(R.string.file_size_bytes, doc.fileSize)
+        doc.fileSize < 1024 * 1024 -> stringResource(R.string.file_size_kb, doc.fileSize / 1024)
+        else                        -> stringResource(R.string.file_size_mb, doc.fileSize / (1024 * 1024))
+    }
+    val icon = when {
+        doc.fileType.contains("pdf", true)   -> Icons.Default.PictureAsPdf
+        doc.fileType.contains("image", true) -> Icons.Default.Image
+        else                                  -> Icons.Default.Description
+    }
+    val iconColor = when {
+        doc.fileType.contains("pdf", true)   -> Color(0xFFB71C1C)
+        doc.fileType.contains("image", true) -> Color(0xFF1565C0)
+        else                                  -> Color(0xFF00838F)
     }
     val categoryLabel = when (doc.category) {
         "analysis"     -> stringResource(R.string.document_category_analysis)
@@ -572,34 +545,56 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
         "xray"         -> stringResource(R.string.document_category_xray)
         else           -> stringResource(R.string.document_category_default)
     }
-    val sizeText = doc.formattedSize
 
-    Card(shape = RoundedCornerShape(14.dp), elevation = CardDefaults.cardElevation(2.dp)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Surface(shape = RoundedCornerShape(10.dp), color = color.copy(alpha = 0.12f),
-                modifier = Modifier.size(44.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(icon, null, tint = color, modifier = Modifier.size(24.dp))
-                }
+    Card(
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(
+            modifier          = Modifier
+                .fillMaxWidth()
+                .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier         = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(iconColor.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(icon, null,
+                    tint     = iconColor,
+                    modifier = Modifier.size(22.dp))
             }
             Spacer(Modifier.width(12.dp))
             Column(modifier = Modifier.weight(1f)) {
-                Text(doc.fileName, fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    AssistChip(onClick = {},
-                        label = { Text(categoryLabel,
-                            style = MaterialTheme.typography.labelSmall) },
-                        modifier = Modifier.height(22.dp))
-                    Text(sizeText, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.align(Alignment.CenterVertically))
+                Text(doc.fileName,
+                    style    = EvaType.cardTitle,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis)
+                Spacer(Modifier.height(2.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(categoryLabel,
+                        style = EvaType.cardMeta,
+                        color = MaterialTheme.colorScheme.primary)
+                    Text("  ·  ",
+                        style = EvaType.cardMeta,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(formattedSize,
+                        style = EvaType.cardMeta,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
                 doc.description?.let {
-                    Text(it, style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(it,
+                        style    = EvaType.cardMeta,
+                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis)
                 }
             }
             IconButton(onClick = onDelete) {
@@ -610,24 +605,22 @@ fun DocumentCard(doc: DocumentResponse, onDelete: () -> Unit) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun UploadDocumentDialog(
     onDismiss: () -> Unit,
     onUpload: (java.io.File, String, String) -> Unit
 ) {
-    val context      = androidx.compose.ui.platform.LocalContext.current
-    var fileName     by remember { mutableStateOf("") }
-    var pickedUri    by remember { mutableStateOf<android.net.Uri?>(null) }
-    var category     by remember { mutableStateOf("analysis") }
-    var description  by remember { mutableStateOf("") }
+    val context     = LocalContext.current
+    var fileName    by remember { mutableStateOf("") }
+    var pickedUri   by remember { mutableStateOf<android.net.Uri?>(null) }
+    var category    by remember { mutableStateOf("analysis") }
+    var description by remember { mutableStateOf("") }
 
     val launcher = androidx.activity.compose.rememberLauncherForActivityResult(
         androidx.activity.result.contract.ActivityResultContracts.GetContent()
     ) { uri ->
-        uri?.let {
-            pickedUri = it
-            fileName  = it.lastPathSegment ?: "document"
-        }
+        uri?.let { pickedUri = it; fileName = it.lastPathSegment ?: "document" }
     }
 
     val categories = listOf(
@@ -637,36 +630,54 @@ fun UploadDocumentDialog(
         "other"        to stringResource(R.string.document_category_other)
     )
 
-    AlertDialog(
+    ModalBottomSheet(
         onDismissRequest = onDismiss,
-        title = { Text(stringResource(R.string.upload_dialog_title)) },
-        text  = {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedButton(onClick = { launcher.launch("*/*") },
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp)) {
-                    Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
-                    Spacer(Modifier.width(6.dp))
-                    Text(
-                        if (fileName.isEmpty()) stringResource(R.string.upload_choose_file)
-                        else fileName,
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                }
-                Text(stringResource(R.string.upload_type_label),
-                    style = MaterialTheme.typography.bodySmall)
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    categories.forEach { (key, label) ->
-                        FilterChip(selected = category == key, onClick = { category = key },
-                            label = { Text(label,
-                                style = MaterialTheme.typography.labelSmall) })
-                    }
-                }
-                OutlinedTextField(value = description, onValueChange = { description = it },
-                    label = { Text(stringResource(R.string.label_description_optional)) },
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(10.dp),
-                    singleLine = true)
+        sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+                .padding(bottom = 32.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp)
+        ) {
+            Text(stringResource(R.string.upload_dialog_title), style = EvaType.sheetTitle)
+            HorizontalDivider()
+            OutlinedButton(
+                onClick  = { launcher.launch("*/*") },
+                modifier = Modifier.fillMaxWidth(),
+                shape    = RoundedCornerShape(12.dp)
+            ) {
+                Icon(Icons.Default.AttachFile, null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(6.dp))
+                Text(
+                    if (fileName.isEmpty()) stringResource(R.string.upload_choose_file) else fileName,
+                    maxLines = 1, overflow = TextOverflow.Ellipsis
+                )
             }
-        },
-        confirmButton = {
+            Text(stringResource(R.string.upload_type_label),
+                style = EvaType.cardMeta,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier              = Modifier.horizontalScroll(rememberScrollState())
+            ) {
+                categories.forEach { (key, label) ->
+                    FilterChip(
+                        selected = category == key,
+                        onClick  = { category = key },
+                        label    = { Text(label, style = EvaType.cardMeta) }
+                    )
+                }
+            }
+            OutlinedTextField(
+                value         = description,
+                onValueChange = { description = it },
+                label         = { Text(stringResource(R.string.label_description_optional)) },
+                modifier      = Modifier.fillMaxWidth(),
+                shape         = RoundedCornerShape(12.dp),
+                singleLine    = true
+            )
             Button(
                 onClick = {
                     pickedUri?.let { uri ->
@@ -677,11 +688,42 @@ fun UploadDocumentDialog(
                         onUpload(tmpFile, category, description)
                     }
                 },
-                enabled = pickedUri != null
-            ) { Text(stringResource(R.string.btn_upload)) }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.btn_cancel)) }
+                enabled  = pickedUri != null,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape    = RoundedCornerShape(50)
+            ) {
+                Text(stringResource(R.string.btn_upload))
+            }
         }
-    )
+    }
+}
+
+@Composable
+fun MedCardEmpty(icon: ImageVector, text: String) {
+    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            modifier            = Modifier.padding(32.dp)
+        ) {
+            Icon(icon, null,
+                modifier = Modifier.size(64.dp),
+                tint     = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.5f))
+            Spacer(Modifier.height(12.dp))
+            Text(text, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                style = EvaType.cardMeta)
+        }
+    }
+}
+
+@Composable
+private fun MedSheetInfoRow(label: String, value: String) {
+    Column {
+        Text(label,
+            style = EvaType.bodyText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = EvaType.bodyText)
+    }
 }

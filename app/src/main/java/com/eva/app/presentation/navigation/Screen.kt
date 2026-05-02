@@ -27,9 +27,8 @@ sealed class Screen(val route: String) {
     object Symptoms          : Screen("symptoms")
     object SymptomsForm      : Screen("symptoms_form")
     object SymptomsResult    : Screen("symptoms_result")
-    object Notifications     : Screen("notifications")
-    object NotificationDetail: Screen("notification_detail/{notifId}") {
-        fun createRoute(id: String) = "notification_detail/$id"
+    object Notifications     : Screen("notifications?notifId={notifId}") {
+        fun createRoute(notifId: String? = null) = "notifications?notifId=${notifId ?: ""}"
     }
     object Profile           : Screen("profile")
     object MedicalCard       : Screen("medical_card")

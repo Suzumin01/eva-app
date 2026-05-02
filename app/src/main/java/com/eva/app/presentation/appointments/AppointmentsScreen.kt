@@ -1,10 +1,12 @@
 package com.eva.app.presentation.appointments
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -14,16 +16,23 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import android.content.Context
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
+import dagger.hilt.android.qualifiers.ApplicationContext
 import com.eva.app.data.api.AppointmentResponse
 import com.eva.app.data.repository.AppointmentRepository
+import com.eva.app.presentation.components.AnimatedListItem
+import com.eva.app.presentation.components.AppointmentCardSkeleton
+import com.eva.app.presentation.components.EvaType
+import com.eva.app.presentation.components.StatusPill
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDate
@@ -39,17 +48,18 @@ import javax.inject.Inject
 
 @HiltViewModel
 class AppointmentsViewModel @Inject constructor(
-    private val repository: AppointmentRepository
+    private val repository: AppointmentRepository,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
-    private val _upcoming = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    private val _upcoming     = MutableStateFlow<List<AppointmentResponse>>(emptyList())
     val upcoming = _upcoming.asStateFlow()
-    private val _past     = MutableStateFlow<List<AppointmentResponse>>(emptyList())
+    private val _past         = MutableStateFlow<List<AppointmentResponse>>(emptyList())
     val past = _past.asStateFlow()
-    private val _isLoading  = MutableStateFlow(false)
+    private val _isLoading    = MutableStateFlow(false)
     val isLoading = _isLoading.asStateFlow()
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing = _isRefreshing.asStateFlow()
-    private val _message  = MutableStateFlow<String?>(null)
+    private val _message      = MutableStateFlow<String?>(null)
     val message = _message.asStateFlow()
 
     init { loadAppointments() }
@@ -78,7 +88,7 @@ class AppointmentsViewModel @Inject constructor(
                 is Resource.Error -> _message.value = ErrorMapper.map(r.message ?: "")
                 else -> {}
             }
-            _isLoading.value = false
+            _isLoading.value    = false
             _isRefreshing.value = false
         }
     }
@@ -86,7 +96,7 @@ class AppointmentsViewModel @Inject constructor(
     fun cancel(id: String) {
         viewModelScope.launch {
             when (val r = repository.cancelAppointment(id)) {
-                is Resource.Success -> { loadAppointments(); _message.value = "Запись отменена" }
+                is Resource.Success -> { loadAppointments(); _message.value = context.getString(R.string.appointment_cancelled_success) }
                 is Resource.Error   -> _message.value = ErrorMapper.map(r.message ?: "")
                 else -> {}
             }
@@ -99,6 +109,12 @@ class AppointmentsViewModel @Inject constructor(
         val slotDt = LocalDate.parse(slotDate).atTime(LocalTime.parse(slotTime))
         ChronoUnit.HOURS.between(java.time.LocalDateTime.now(), slotDt) < 24
     }.getOrDefault(false)
+}
+
+private fun statusColor(status: String) = when (status) {
+    "scheduled" -> Color(0xFF1565C0)
+    "completed" -> Color(0xFF2E7D32)
+    else        -> Color(0xFFB71C1C)
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -128,8 +144,12 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
             val list = if (tab == 0) upcoming else past
 
             when {
-                isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                isLoading -> LazyColumn(
+                    contentPadding    = PaddingValues(vertical = 8.dp),
+                    modifier          = Modifier.fillMaxSize(),
+                    userScrollEnabled = false
+                ) {
+                    items(5) { AppointmentCardSkeleton() }
                 }
                 else -> PullToRefreshBox(
                     isRefreshing = isRefreshing,
@@ -152,15 +172,17 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
                         }
                     } else {
                         LazyColumn(
-                            contentPadding = PaddingValues(16.dp),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
+                            modifier       = Modifier.fillMaxSize(),
+                            contentPadding = PaddingValues(vertical = 8.dp)
                         ) {
-                            items(list, key = { it.appointmentId }) { a ->
-                                AppointmentCard(
-                                    a           = a,
-                                    isWithin24h = viewModel.isWithin24Hours(a.slotDate, a.slotTime),
-                                    onCancel    = { viewModel.cancel(a.appointmentId) }
-                                )
+                            itemsIndexed(list, key = { _, a -> a.appointmentId }) { index, a ->
+                                AnimatedListItem(index = index) {
+                                    AppointmentCard(
+                                        a           = a,
+                                        isWithin24h = viewModel.isWithin24Hours(a.slotDate, a.slotTime),
+                                        onCancel    = { viewModel.cancel(a.appointmentId) }
+                                    )
+                                }
                             }
                         }
                     }
@@ -170,10 +192,18 @@ fun AppointmentsScreen(viewModel: AppointmentsViewModel = hiltViewModel()) {
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AppointmentCard(a: AppointmentResponse, isWithin24h: Boolean, onCancel: () -> Unit) {
-    var expanded by remember { mutableStateOf(false) }
+    var showSheet        by remember { mutableStateOf(false) }
     var showCancelDialog by remember { mutableStateOf(false) }
+
+    val color = statusColor(a.status)
+    val statusLabel = when (a.status) {
+        "scheduled" -> stringResource(R.string.appointment_status_scheduled)
+        "completed" -> stringResource(R.string.appointment_status_completed)
+        else        -> stringResource(R.string.appointment_status_cancelled)
+    }
 
     if (showCancelDialog) {
         AlertDialog(
@@ -184,28 +214,29 @@ fun AppointmentCard(a: AppointmentResponse, isWithin24h: Boolean, onCancel: () -
                     Text(stringResource(R.string.appointment_cancel_dialog_text,
                         a.doctorName, formatDate(a.slotDate)))
                     if (isWithin24h) {
-                        Card(colors = CardDefaults.cardColors(
-                            containerColor = MaterialTheme.colorScheme.errorContainer)) {
-                            Row(modifier = Modifier.padding(10.dp),
-                                verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.Warning, null,
-                                    tint = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp))
-                                Spacer(Modifier.width(8.dp))
-                                Text(stringResource(R.string.appointment_cancel_within_24h),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onErrorContainer)
-                            }
+                        Row(
+                            modifier          = Modifier
+                                .clip(RoundedCornerShape(10.dp))
+                                .background(MaterialTheme.colorScheme.errorContainer)
+                                .padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Default.Warning, null,
+                                tint     = MaterialTheme.colorScheme.error,
+                                modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(8.dp))
+                            Text(stringResource(R.string.appointment_cancel_within_24h),
+                                style = EvaType.cardMeta,
+                                color = MaterialTheme.colorScheme.onErrorContainer)
                         }
                     }
                 }
             },
             confirmButton = {
-                Button(onClick = { showCancelDialog = false; onCancel() },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = MaterialTheme.colorScheme.error)) {
-                    Text(stringResource(R.string.btn_cancel_appointment))
-                }
+                Button(
+                    onClick = { showCancelDialog = false; onCancel() },
+                    colors  = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) { Text(stringResource(R.string.btn_cancel_appointment)) }
             },
             dismissButton = {
                 TextButton(onClick = { showCancelDialog = false }) {
@@ -215,146 +246,164 @@ fun AppointmentCard(a: AppointmentResponse, isWithin24h: Boolean, onCancel: () -
         )
     }
 
+    if (showSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { showSheet = false },
+            sheetState       = sheetState
+        ) {
+            AppointmentBottomSheet(
+                a           = a,
+                statusColor = color,
+                statusLabel = statusLabel,
+                onCancel    = { showSheet = false; showCancelDialog = true }
+            )
+        }
+    }
+
     Card(
-        modifier  = Modifier.fillMaxWidth().clickable { expanded = !expanded },
+        onClick   = { showSheet = true },
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
         shape     = RoundedCornerShape(16.dp),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
-                    Text(a.doctorName, fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.bodyLarge)
-                    Text(a.specializationName, style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                }
-                StatusChip(a.status)
-            }
-
-            Spacer(Modifier.height(10.dp))
-            HorizontalDivider()
-            Spacer(Modifier.height(10.dp))
-
-            Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
-                DetailRow(Icons.Default.CalendarMonth,
-                    stringResource(R.string.label_date), formatDate(a.slotDate))
-                DetailRow(Icons.Default.Schedule,
-                    stringResource(R.string.label_time), formatTime(a.slotTime))
-                DetailRow(Icons.Default.Timer,
-                    stringResource(R.string.appointment_detail_duration_label),
-                    stringResource(R.string.duration_minutes, a.durationMinutes))
-            }
-
-            if (expanded) {
-                Spacer(Modifier.height(10.dp))
-                HorizontalDivider()
-                Spacer(Modifier.height(10.dp))
-
-                DetailRow(Icons.Default.LocalHospital,
-                    stringResource(R.string.label_clinic), a.clinicName)
-                Spacer(Modifier.height(6.dp))
-                DetailRow(Icons.Default.LocationOn,
-                    stringResource(R.string.label_address), a.clinicAddress)
-
-                a.notes?.let {
-                    Spacer(Modifier.height(10.dp))
-                    HorizontalDivider()
-                    Column {
-                        Text(stringResource(R.string.appointment_detail_note),
-                            fontWeight = FontWeight.SemiBold,
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary)
-                        Spacer(Modifier.height(4.dp))
-                        Text(it, style = MaterialTheme.typography.bodySmall)
-                    }
-                }
-
-                if (a.status == "completed") {
-                    Spacer(Modifier.height(10.dp))
-                    HorizontalDivider()
-                    Card(colors = CardDefaults.cardColors(
-                        containerColor = MaterialTheme.colorScheme.secondaryContainer),
-                        shape = RoundedCornerShape(10.dp)) {
-                        Column(modifier = Modifier.padding(12.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(Icons.Default.MedicalServices, null,
-                                    tint = MaterialTheme.colorScheme.secondary,
-                                    modifier = Modifier.size(16.dp))
-                                Spacer(Modifier.width(6.dp))
-                                Text(stringResource(R.string.appointment_detail_conclusion),
-                                    fontWeight = FontWeight.SemiBold,
-                                    style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.colorScheme.secondary)
-                            }
-                            Spacer(Modifier.height(6.dp))
-                            if (!a.doctorConclusion.isNullOrBlank()) {
-                                Text(a.doctorConclusion,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer)
-                            } else {
-                                Text(stringResource(R.string.appointment_conclusion_empty),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSecondaryContainer.copy(alpha = 0.6f))
-                            }
-                        }
-                    }
-                }
-
-                Text(stringResource(R.string.appointment_created, formatDate(a.createdAt)),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp))
-
-                if (a.status == "scheduled") {
-                    Spacer(Modifier.height(10.dp))
-                    OutlinedButton(
-                        onClick = { showCancelDialog = true },
-                        modifier = Modifier.fillMaxWidth(),
-                        shape    = RoundedCornerShape(10.dp),
-                        colors   = ButtonDefaults.outlinedButtonColors(
-                            contentColor = MaterialTheme.colorScheme.error)
-                    ) {
-                        Icon(Icons.Default.Cancel, null, modifier = Modifier.size(16.dp))
-                        Spacer(Modifier.width(6.dp))
-                        Text(stringResource(R.string.btn_cancel_appointment))
-                    }
-                }
-            }
-
-            Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+        Row(
+            modifier          = Modifier.padding(14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(46.dp)
+                    .clip(CircleShape)
+                    .background(color.copy(alpha = 0.12f)),
+                contentAlignment = Alignment.Center
+            ) {
                 Icon(
-                    if (expanded) Icons.Default.KeyboardArrowUp else Icons.Default.KeyboardArrowDown,
-                    null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Icons.Default.CalendarMonth, null,
+                    tint     = color,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text(a.doctorName, style = EvaType.cardTitle)
+                Spacer(Modifier.height(2.dp))
+                Text(a.clinicName,
+                    style = EvaType.cardMeta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(4.dp))
+                Text("${formatDate(a.slotDate)}, ${formatTime(a.slotTime)}",
+                    style = EvaType.cardMeta,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Spacer(Modifier.width(8.dp))
+            StatusPill(statusLabel, color)
+        }
+    }
+}
+
+@Composable
+fun AppointmentBottomSheet(
+    a: AppointmentResponse,
+    statusColor: Color,
+    statusLabel: String,
+    onCancel: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 20.dp)
+            .padding(bottom = 36.dp)
+    ) {
+        Text(a.doctorName, style = EvaType.sheetTitle)
+        Spacer(Modifier.height(4.dp))
+        Row(
+            verticalAlignment     = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(a.specializationName,
+                style = EvaType.cardSub,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            StatusPill(statusLabel, statusColor)
+        }
+
+        Spacer(Modifier.height(16.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(14.dp))
+
+        Row(
+            modifier              = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                SheetInfoRow(label = stringResource(R.string.label_clinic),  value = a.clinicName)
+                Spacer(Modifier.height(12.dp))
+                SheetInfoRow(label = stringResource(R.string.label_address), value = a.clinicAddress)
+            }
+            Column(modifier = Modifier.weight(1f)) {
+                SheetInfoRow(label = stringResource(R.string.label_date),   value = formatDate(a.slotDate))
+                Spacer(Modifier.height(12.dp))
+                SheetInfoRow(label = stringResource(R.string.label_time),   value = formatTime(a.slotTime))
+            }
+        }
+
+        a.notes?.let {
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(14.dp))
+            SheetInfoRow(label = stringResource(R.string.appointment_detail_note), value = it)
+        }
+
+        if (a.status == "completed") {
+            Spacer(Modifier.height(14.dp))
+            HorizontalDivider()
+            Spacer(Modifier.height(14.dp))
+            Text(stringResource(R.string.appointment_detail_conclusion),
+                style = EvaType.cardSub,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Spacer(Modifier.height(4.dp))
+            Text(
+                a.doctorConclusion?.takeIf { it.isNotBlank() }
+                    ?: stringResource(R.string.appointment_conclusion_empty),
+                style = EvaType.bodyText
+            )
+        }
+
+        Spacer(Modifier.height(14.dp))
+        HorizontalDivider()
+        Spacer(Modifier.height(10.dp))
+        Text(
+            stringResource(R.string.appointment_created, formatDate(a.createdAt)),
+            style = EvaType.cardMeta,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+
+        if (a.status == "scheduled") {
+            Spacer(Modifier.height(16.dp))
+            TextButton(
+                onClick  = onCancel,
+                modifier = Modifier.fillMaxWidth(),
+                colors   = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
+                )
+            ) {
+                Text(stringResource(R.string.btn_cancel_appointment))
             }
         }
     }
 }
 
 @Composable
-fun StatusChip(status: String) {
-    val (color, label) = when (status) {
-        "scheduled"  -> Color(0xFF1565C0) to stringResource(R.string.appointment_status_scheduled)
-        "completed"  -> Color(0xFF2E7D32) to stringResource(R.string.appointment_status_completed)
-        "cancelled"  -> Color(0xFFB71C1C) to stringResource(R.string.appointment_status_cancelled)
-        else         -> MaterialTheme.colorScheme.onSurfaceVariant to status
-    }
-    Surface(shape = RoundedCornerShape(20.dp), color = color.copy(alpha = 0.12f)) {
-        Text(label, style = MaterialTheme.typography.labelSmall,
-            fontWeight = FontWeight.SemiBold, color = color,
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp))
-    }
-}
-
-@Composable
-fun DetailRow(icon: androidx.compose.ui.graphics.vector.ImageVector, label: String, value: String) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(16.dp))
-        Spacer(Modifier.width(4.dp))
-        Column {
-            Text(label, style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            Text(value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
-        }
+private fun SheetInfoRow(label: String, value: String) {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(label,
+            style = EvaType.bodyText,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.height(2.dp))
+        Text(value, style = EvaType.bodyText)
     }
 }

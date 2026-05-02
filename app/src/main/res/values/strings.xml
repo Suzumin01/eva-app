@@ -52,6 +52,7 @@
     <string name="label_new_password">Новый пароль</string>
 
     <!-- Home Screen -->
+    <string name="home_next_appointment">Ближайший приём</string>
     <string name="home_welcome">Добро пожаловать!</string>
     <string name="home_section_favorites">Избранные</string>
     <string name="menu_search_doctor">Поиск врача</string>
@@ -60,7 +61,7 @@
     <string name="menu_clinics_sub">Медицинские учреждения рядом</string>
     <string name="menu_specializations">Специализации</string>
     <string name="menu_specializations_sub">Выберите направление врача</string>
-    <string name="menu_ai_analysis">AI-анализ симптомов</string>
+    <string name="menu_ai_analysis">AI-анализ</string>
     <string name="menu_ai_analysis_sub">Предварительная оценка состояния</string>
     <string name="menu_my_appointments">Мои записи</string>
     <string name="menu_my_appointments_sub">Предстоящие и прошедшие приёмы</string>
@@ -72,6 +73,8 @@
     <string name="doctors_filter_spec_label">Специализация</string>
     <string name="doctors_filter_all">Все</string>
     <string name="doctors_filter_remove">Снять фильтр</string>
+    <string name="doctors_filter_clinic_label">Клиника</string>
+    <string name="doctors_filter_clinic_all">Все клиники</string>
     <string name="doctors_empty">Врачи не найдены</string>
     <string name="doctors_all_loaded">Все врачи загружены</string>
     <string name="doctor_clinic_fallback">Клиника #%d</string>
@@ -81,6 +84,7 @@
     <string name="specializations_screen_title">Специализации</string>
 
     <!-- Appointments Screen -->
+    <string name="appointment_cancelled_success">Запись отменена</string>
     <string name="tab_upcoming">Предстоящие (%d)</string>
     <string name="tab_past">Прошедшие (%d)</string>
     <string name="appointments_upcoming_empty">Нет предстоящих записей</string>
@@ -145,6 +149,9 @@
     <string name="medical_card_ai_recommendations">Рекомендации</string>
     <string name="medical_card_ai_accuracy">Точность: %d%%</string>
     <string name="medical_card_ai_card_title">AI-анализ</string>
+    <string name="file_size_bytes">%d Б</string>
+    <string name="file_size_kb">%d КБ</string>
+    <string name="file_size_mb">%d МБ</string>
     <string name="medical_card_delete_dialog_title">Удалить документ?</string>
     <string name="medical_card_delete_dialog_text">«%s» будет удалён без возможности восстановления.</string>
     <string name="btn_upload_document">Загрузить документ</string>
@@ -167,6 +174,7 @@
     <string name="urgency_low">✅ Несрочно</string>
 
     <!-- Profile Screen -->
+    <string name="profile_photo_file_read_error">Не удалось прочитать файл</string>
     <string name="profile_avatar_cd">Аватар</string>
     <string name="profile_logout_dialog_title">Выйти из аккаунта?</string>
     <string name="profile_logout_dialog_text">Вы будете перенаправлены на экран входа.</string>
@@ -218,6 +226,8 @@
     <!-- Symptoms Screen -->
     <string name="symptoms_result_dialog_title">Результат анализа</string>
     <string name="symptoms_dialog_symptoms_label">Симптомы:</string>
+    <string name="symptoms_history_title">История запросов</string>
+    <string name="symptoms_quota">%1$d / %2$d сегодня</string>
     <string name="symptoms_empty_title">Нет анализов</string>
     <string name="symptoms_empty_hint">Нажмите «Новый запрос» чтобы описать симптомы</string>
     <string name="symptoms_new_request_btn">Новый запрос</string>
@@ -252,7 +262,9 @@
     <string name="doctor_stat_rating">рейтинг</string>
     <string name="doctor_stat_reviews">отзывов</string>
     <string name="doctor_about_section">О враче</string>
+    <string name="doctor_reviews_title">Отзывы</string>
     <string name="doctor_reviews_count">Отзывы (%d)</string>
+    <string name="doctor_no_reviews">Отзывов пока нет</string>
     <string name="doctor_review_yours">Вы</string>
     <string name="review_your_rating">Ваша оценка:</string>
     <string name="review_rating_1">Очень плохо</string>
@@ -268,6 +280,8 @@
     <string name="clinic_detail_contact_info">Контактная информация</string>
     <string name="clinic_detail_phone_label">Телефон</string>
     <string name="clinic_detail_find_doctors_btn">Найти врачей в этой клинике</string>
+    <string name="clinic_stat_doctors">врачей</string>
+    <string name="clinic_on_map_btn">На карте</string>
 
     <!-- Settings Screen -->
     <string name="settings_screen_title">Настройки</string>
@@ -285,10 +299,15 @@
     <string name="settings_dark_theme_off">Выключена</string>
     <string name="settings_section_about">О приложении</string>
     <string name="settings_about_version">Версия</string>
+    <string name="settings_about_version_value">1.0.0</string>
     <string name="settings_about_developer">Разработчик</string>
+    <string name="settings_about_developer_value">ЕВА Team</string>
     <string name="settings_about_license">Лицензия</string>
+    <string name="settings_about_license_value">MIT</string>
 
     <!-- Edit Profile Screen -->
+    <string name="edit_profile_load_error">Ошибка загрузки профиля</string>
+    <string name="edit_profile_save_error">Ошибка сохранения</string>
     <string name="edit_profile_screen_title">Редактировать профиль</string>
     <string name="edit_profile_full_name_label">Полное имя *</string>
     <string name="edit_profile_name_min_error">Минимум 2 символа</string>
