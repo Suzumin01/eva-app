@@ -1,8 +1,6 @@
 package com.eva.app.presentation.doctors
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +20,8 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -36,7 +36,14 @@ import com.eva.app.data.repository.ClinicRepository
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.data.repository.SpecializationRepository
 import com.eva.app.util.Resource
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.eva.app.BuildConfig
+import com.eva.app.presentation.components.EvaGradients
 import com.eva.app.presentation.components.EvaType
+import kotlin.math.abs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.*
@@ -390,7 +397,7 @@ fun DoctorsScreen(
                             if (!hasMore && doctors.size >= PAGE_SIZE) {
                                 item {
                                     Text(stringResource(R.string.doctors_all_loaded),
-                                        style = MaterialTheme.typography.labelSmall,
+                                        style = EvaType.cardMeta,
                                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)
                                             .wrapContentWidth())
@@ -406,34 +413,56 @@ fun DoctorsScreen(
 
 @Composable
 fun DoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
+    val context = LocalContext.current
+    val avatarColors = listOf(
+        Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFF6A1B9A),
+        Color(0xFF00838F), Color(0xFFE65100), Color(0xFF37474F)
+    )
+    val bgColor  = avatarColors[abs(doctor.fullName.hashCode()) % avatarColors.size]
+    val initials = doctor.fullName.trim().split(" ")
+        .filter { it.isNotEmpty() }.take(2)
+        .joinToString("") { it.first().uppercaseChar().toString() }
+        .ifEmpty { "?" }
+    val photoUrl = doctor.photoUrl?.let {
+        BuildConfig.BASE_URL.substringBefore("/api/") + it
+    }
+
     Card(
         onClick    = onClick,
         modifier   = Modifier
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape      = RoundedCornerShape(16.dp),
-        elevation  = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation  = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors     = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
             modifier          = Modifier.padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Аватар с рамкой primary-цвета
             Box(
                 modifier         = Modifier
                     .size(80.dp)
-                    .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-                    .padding(4.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer),
+                    .background(bgColor),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    Icons.Default.Person, null,
-                    tint     = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(40.dp)
-                )
+                if (photoUrl != null) {
+                    AsyncImage(
+                        model        = ImageRequest.Builder(context)
+                            .data(photoUrl).crossfade(true).build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier     = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                } else {
+                    Text(
+                        initials,
+                        color      = Color.White,
+                        style      = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
 
             Spacer(Modifier.width(16.dp))
@@ -451,50 +480,18 @@ fun DoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
                     style = EvaType.cardSub,
                     color = MaterialTheme.colorScheme.primary
                 )
-                Spacer(Modifier.height(10.dp))
-                Row(
-                    verticalAlignment     = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    doctor.experienceYears?.let { exp ->
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.MedicalServices, null,
-                                tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-                                modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text(
-                                text  = "Стаж $exp лет",
-                                style = EvaType.cardMeta,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
+                doctor.rating?.toDoubleOrNull()?.let {
+                    Spacer(Modifier.height(6.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Default.Star, null,
+                            tint     = Color(0xFFFFC107),
+                            modifier = Modifier.size(13.dp))
+                        Spacer(Modifier.width(3.dp))
+                        Text(
+                            text  = doctor.rating,
+                            style = EvaType.cardMeta
+                        )
                     }
-                    doctor.rating?.toDoubleOrNull()?.let {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Default.Star, null,
-                                tint     = Color(0xFFFFC107),
-                                modifier = Modifier.size(13.dp))
-                            Spacer(Modifier.width(3.dp))
-                            Text(
-                                text  = doctor.rating,
-                                style = EvaType.cardMeta
-                            )
-                        }
-                    }
-                }
-                Spacer(Modifier.height(6.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.LocationOn, null,
-                        tint     = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(13.dp))
-                    Spacer(Modifier.width(3.dp))
-                    Text(
-                        text     = doctor.clinicName,
-                        style    = EvaType.cardMeta,
-                        color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
             }
         }

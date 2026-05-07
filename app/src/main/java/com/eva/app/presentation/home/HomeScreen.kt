@@ -41,7 +41,13 @@ import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDate
 import com.eva.app.util.formatTime
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.eva.app.BuildConfig
 import com.eva.app.presentation.components.EvaType
+import kotlin.math.abs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.*
@@ -287,6 +293,7 @@ fun AnimatedMenuCard(item: HomeItem, index: Int, modifier: Modifier = Modifier) 
 
 @Composable
 fun FavoriteDoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
+    val context = LocalContext.current
     val displayName = run {
         val parts = doctor.fullName.trim().split(" ")
         if (parts.size >= 2) {
@@ -295,6 +302,19 @@ fun FavoriteDoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
             "$lastName $initials"
         } else doctor.fullName
     }
+    val avatarColors = listOf(
+        Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFF6A1B9A),
+        Color(0xFF00838F), Color(0xFFE65100), Color(0xFF37474F)
+    )
+    val bgColor  = avatarColors[abs(doctor.fullName.hashCode()) % avatarColors.size]
+    val initials = doctor.fullName.trim().split(" ")
+        .filter { it.isNotEmpty() }.take(2)
+        .joinToString("") { it.first().uppercaseChar().toString() }
+        .ifEmpty { "?" }
+    val photoUrl = doctor.photoUrl?.let {
+        BuildConfig.BASE_URL.substringBefore("/api/") + it
+    }
+
     Column(
         modifier            = Modifier.width(72.dp).clickable(onClick = onClick),
         horizontalAlignment = Alignment.CenterHorizontally
@@ -305,12 +325,25 @@ fun FavoriteDoctorCard(doctor: DoctorResponse, onClick: () -> Unit) {
                 .border(2.dp, Color.White.copy(alpha = 0.85f), CircleShape)
                 .padding(3.dp)
                 .clip(CircleShape)
-                .background(Color.White.copy(alpha = 0.20f)),
+                .background(bgColor),
             contentAlignment = Alignment.Center
         ) {
-            Icon(Icons.Default.Person, null,
-                tint     = Color.White,
-                modifier = Modifier.size(30.dp))
+            if (photoUrl != null) {
+                AsyncImage(
+                    model        = ImageRequest.Builder(context)
+                        .data(photoUrl).crossfade(true).build(),
+                    contentDescription = null,
+                    contentScale = ContentScale.Crop,
+                    modifier     = Modifier.fillMaxSize().clip(CircleShape)
+                )
+            } else {
+                Text(
+                    initials,
+                    color      = Color.White,
+                    style      = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
         }
         Spacer(Modifier.height(7.dp))
         Text(

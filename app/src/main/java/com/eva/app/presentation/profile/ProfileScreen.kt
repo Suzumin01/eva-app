@@ -38,6 +38,7 @@ import com.eva.app.util.Resource
 import com.eva.app.presentation.components.EvaGradients
 import com.eva.app.presentation.components.EvaType
 import com.eva.app.presentation.components.ProfileNameSkeleton
+import kotlin.math.abs
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
@@ -109,6 +110,19 @@ class ProfileViewModel @Inject constructor(
         }
     }
 
+    fun deletePhoto() {
+        viewModelScope.launch {
+            _photoUploading.value = true
+            _photoError.value = null
+            when (val r = authRepository.deletePhoto()) {
+                is Resource.Success -> loadProfile()
+                is Resource.Error   -> _photoError.value = r.message ?: context.getString(R.string.profile_photo_error)
+                else -> {}
+            }
+            _photoUploading.value = false
+        }
+    }
+
     fun clearPhotoError() { _photoError.value = null }
 
     fun logout() {
@@ -128,6 +142,7 @@ class ProfileViewModel @Inject constructor(
     }.getOrNull()
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileScreen(
     onLogout: () -> Unit,
@@ -142,7 +157,8 @@ fun ProfileScreen(
     val photoUploading by viewModel.photoUploading.collectAsState()
     val photoError     by viewModel.photoError.collectAsState()
     val avatarUrl      by viewModel.avatarUrl.collectAsState()
-    var showLogoutDialog by remember { mutableStateOf(false) }
+    var showLogoutDialog   by remember { mutableStateOf(false) }
+    var showAvatarSheet    by remember { mutableStateOf(false) }
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
 
@@ -161,8 +177,8 @@ fun ProfileScreen(
     if (showLogoutDialog) {
         AlertDialog(
             onDismissRequest = { showLogoutDialog = false },
-            title = { Text(stringResource(R.string.profile_logout_dialog_title)) },
-            text  = { Text(stringResource(R.string.profile_logout_dialog_text)) },
+            title = { Text(stringResource(R.string.profile_logout_dialog_title), style = EvaType.sheetTitle) },
+            text  = { Text(stringResource(R.string.profile_logout_dialog_text), style = EvaType.bodyText) },
             confirmButton = {
                 Button(
                     onClick = { showLogoutDialog = false; viewModel.logout() },
@@ -177,6 +193,56 @@ fun ProfileScreen(
         )
     }
 
+    if (showAvatarSheet) {
+        ModalBottomSheet(
+            onDismissRequest = { showAvatarSheet = false },
+            sheetState       = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 32.dp)
+            ) {
+                Text(
+                    stringResource(R.string.profile_avatar_sheet_title),
+                    style    = EvaType.sheetTitle,
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 12.dp)
+                )
+                HorizontalDivider()
+                Surface(
+                    onClick  = { showAvatarSheet = false; photoPicker.launch("image/*") },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Text(stringResource(R.string.profile_avatar_change), style = EvaType.bodyText)
+                    }
+                }
+                Surface(
+                    onClick  = { showAvatarSheet = false; viewModel.deletePhoto() },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier          = Modifier.padding(horizontal = 20.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Default.DeleteOutline, null,
+                            tint     = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(22.dp))
+                        Spacer(Modifier.width(16.dp))
+                        Text(stringResource(R.string.profile_avatar_delete),
+                            style = EvaType.bodyText,
+                            color = MaterialTheme.colorScheme.error)
+                    }
+                }
+            }
+        }
+    }
+
     Scaffold(snackbarHost = { SnackbarHost(snackbar) }) { padding ->
         Column(
             modifier = Modifier
@@ -188,7 +254,7 @@ fun ProfileScreen(
                 modifier            = Modifier
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-                    .background(Brush.linearGradient(EvaGradients.specs))
+                    .background(Brush.linearGradient(EvaGradients.doctors))
                     .statusBarsPadding()
                     .padding(start = 20.dp, end = 20.dp, top = 48.dp, bottom = 28.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
@@ -212,25 +278,60 @@ fun ProfileScreen(
                                 modifier           = Modifier.fillMaxSize().clip(CircleShape)
                             )
                         } else {
-                            Icon(Icons.Default.Person, null,
-                                modifier = Modifier.size(56.dp),
-                                tint     = Color.White)
+                            val name = displayName ?: ""
+                            val initials = name.trim().split(" ")
+                                .filter { it.isNotEmpty() }
+                                .take(2)
+                                .joinToString("") { it.first().uppercaseChar().toString() }
+                                .ifEmpty { "?" }
+                            val avatarColors = listOf(
+                                Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFF6A1B9A),
+                                Color(0xFF00838F), Color(0xFFE65100), Color(0xFF37474F)
+                            )
+                            val bgColor = avatarColors[abs(name.hashCode()) % avatarColors.size]
+                            Box(
+                                modifier         = Modifier.fillMaxSize().background(bgColor),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    initials,
+                                    color      = Color.White,
+                                    style      = MaterialTheme.typography.headlineMedium,
+                                    fontWeight = androidx.compose.ui.text.font.FontWeight.Bold
+                                )
+                            }
                         }
                     }
-                    SmallFloatingActionButton(
-                        onClick        = { photoPicker.launch("image/*") },
-                        containerColor = Color.White,
-                        contentColor   = Color(0xFF6A1B9A),
-                        modifier       = Modifier.size(30.dp)
-                    ) {
-                        if (photoUploading) {
+                    if (photoUploading) {
+                        SmallFloatingActionButton(
+                            onClick        = {},
+                            containerColor = Color.White,
+                            contentColor   = MaterialTheme.colorScheme.primary,
+                            modifier       = Modifier.size(30.dp)
+                        ) {
                             CircularProgressIndicator(
                                 modifier    = Modifier.size(16.dp),
                                 strokeWidth = 2.dp,
-                                color       = Color(0xFF6A1B9A)
+                                color       = MaterialTheme.colorScheme.primary
                             )
-                        } else {
+                        }
+                    } else if (avatarUrl == null) {
+                        SmallFloatingActionButton(
+                            onClick        = { photoPicker.launch("image/*") },
+                            containerColor = Color.White,
+                            contentColor   = MaterialTheme.colorScheme.primary,
+                            modifier       = Modifier.size(30.dp)
+                        ) {
                             Icon(Icons.Default.CameraAlt, null, modifier = Modifier.size(16.dp))
+                        }
+                    } else {
+                        SmallFloatingActionButton(
+                            onClick        = { showAvatarSheet = true },
+                            containerColor = Color.White,
+                            contentColor   = MaterialTheme.colorScheme.primary,
+                            modifier       = Modifier.size(30.dp)
+                        ) {
+                            Icon(Icons.Default.MoreVert, null, modifier = Modifier.size(16.dp))
                         }
                     }
                 }
@@ -256,14 +357,14 @@ fun ProfileScreen(
 
             ProfileMenuCard(
                 icon     = Icons.Default.HealthAndSafety,
-                iconTint = Color(0xFF1565C0),
+                iconTint = MaterialTheme.colorScheme.primary,
                 title    = stringResource(R.string.profile_menu_medical_card),
                 subtitle = stringResource(R.string.profile_menu_medical_card_sub),
                 onClick  = onOpenMedicalCard
             )
             ProfileMenuCard(
                 icon     = Icons.Default.Settings,
-                iconTint = Color(0xFF00838F),
+                iconTint = MaterialTheme.colorScheme.secondary,
                 title    = stringResource(R.string.profile_menu_settings),
                 subtitle = stringResource(R.string.profile_menu_settings_sub),
                 onClick  = onOpenSettings

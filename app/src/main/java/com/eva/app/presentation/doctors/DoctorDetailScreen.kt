@@ -27,8 +27,14 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import coil.compose.AsyncImage
+import coil.request.ImageRequest
+import com.eva.app.BuildConfig
+import com.eva.app.util.formatDate
+import kotlin.math.abs
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
@@ -38,7 +44,9 @@ import com.eva.app.data.local.TokenManager
 import com.eva.app.data.repository.DoctorRepository
 import com.eva.app.util.Resource
 import com.eva.app.presentation.components.EvaType
+import android.content.Context
 import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import org.json.JSONArray
@@ -47,7 +55,8 @@ import javax.inject.Inject
 @HiltViewModel
 class DoctorDetailViewModel @Inject constructor(
     private val doctorRepository: DoctorRepository,
-    private val tokenManager: TokenManager
+    private val tokenManager: TokenManager,
+    @ApplicationContext private val context: Context
 ) : ViewModel() {
     private val _doctor    = MutableStateFlow<DoctorResponse?>(null)
     val doctor = _doctor.asStateFlow()
@@ -84,7 +93,7 @@ class DoctorDetailViewModel @Inject constructor(
             _isLoading.value = true
             when (val r = doctorRepository.getDoctorById(doctorId)) {
                 is Resource.Success -> _doctor.value = r.data
-                is Resource.Error   -> _error.value = r.message ?: "Не удалось загрузить врача"
+                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.error_load_doctor)
                 else -> {}
             }
             loadReviews(doctorId)
@@ -117,8 +126,8 @@ class DoctorDetailViewModel @Inject constructor(
     fun submitReview(doctorId: Int, rating: Int, comment: String) {
         viewModelScope.launch {
             when (val r = doctorRepository.addReview(doctorId, rating, comment.ifBlank { null })) {
-                is Resource.Success -> { _canReview.value = false; _message.value = "Отзыв добавлен!"; loadReviews(doctorId) }
-                is Resource.Error   -> _error.value = r.message ?: "Ошибка"
+                is Resource.Success -> { _canReview.value = false; _message.value = context.getString(R.string.review_added); loadReviews(doctorId) }
+                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.error_generic)
                 else -> {}
             }
         }
@@ -127,8 +136,8 @@ class DoctorDetailViewModel @Inject constructor(
     fun updateReview(doctorId: Int, reviewId: String, rating: Int, comment: String) {
         viewModelScope.launch {
             when (val r = doctorRepository.updateReview(reviewId, rating, comment.ifBlank { null })) {
-                is Resource.Success -> { _message.value = "Отзыв обновлён"; loadReviews(doctorId) }
-                is Resource.Error   -> _error.value = r.message ?: "Ошибка"
+                is Resource.Success -> { _message.value = context.getString(R.string.review_updated); loadReviews(doctorId) }
+                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.error_generic)
                 else -> {}
             }
         }
@@ -137,8 +146,8 @@ class DoctorDetailViewModel @Inject constructor(
     fun deleteReview(doctorId: Int, reviewId: String) {
         viewModelScope.launch {
             when (val r = doctorRepository.deleteReview(reviewId)) {
-                is Resource.Success -> { _canReview.value = true; _message.value = "Отзыв удалён"; loadReviews(doctorId) }
-                is Resource.Error   -> _error.value = r.message ?: "Ошибка"
+                is Resource.Success -> { _canReview.value = true; _message.value = context.getString(R.string.review_deleted); loadReviews(doctorId) }
+                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.error_generic)
                 else -> {}
             }
         }
@@ -211,8 +220,8 @@ fun DoctorDetailScreen(
     deletingReview?.let { review ->
         AlertDialog(
             onDismissRequest = { deletingReview = null },
-            title  = { Text(stringResource(R.string.doctor_delete_review_title)) },
-            text   = { Text(stringResource(R.string.doctor_delete_review_text)) },
+            title  = { Text(stringResource(R.string.doctor_delete_review_title), style = EvaType.sheetTitle) },
+            text   = { Text(stringResource(R.string.doctor_delete_review_text), style = EvaType.bodyText) },
             confirmButton = {
                 Button(
                     onClick = { deletingReview = null; viewModel.deleteReview(doctorId, review.reviewId) },
@@ -264,6 +273,20 @@ fun DoctorDetailScreen(
                             .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
+                        val avatarColors = listOf(
+                            Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFF6A1B9A),
+                            Color(0xFF00838F), Color(0xFFE65100), Color(0xFF37474F)
+                        )
+                        val heroBg = avatarColors[abs(doc.fullName.hashCode()) % avatarColors.size]
+                        val heroInitials = doc.fullName.trim().split(" ")
+                            .filter { it.isNotEmpty() }.take(2)
+                            .joinToString("") { it.first().uppercaseChar().toString() }
+                            .ifEmpty { "?" }
+                        val heroPhotoUrl = doc.photoUrl?.let {
+                            BuildConfig.BASE_URL.substringBefore("/api/") + it
+                        }
+                        val heroContext = LocalContext.current
+
                         Box(
                             modifier         = Modifier
                                 .size(100.dp)
@@ -271,9 +294,27 @@ fun DoctorDetailScreen(
                                 .background(Color.White.copy(alpha = 0.22f)),
                             contentAlignment = Alignment.Center
                         ) {
-                            Icon(Icons.Default.Person, null,
-                                tint     = Color.White,
-                                modifier = Modifier.size(54.dp))
+                            Box(
+                                modifier         = Modifier.fillMaxSize().clip(CircleShape).background(heroBg),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (heroPhotoUrl != null) {
+                                    AsyncImage(
+                                        model        = ImageRequest.Builder(heroContext)
+                                            .data(heroPhotoUrl).crossfade(true).build(),
+                                        contentDescription = null,
+                                        contentScale = ContentScale.Crop,
+                                        modifier     = Modifier.fillMaxSize().clip(CircleShape)
+                                    )
+                                } else {
+                                    Text(
+                                        heroInitials,
+                                        color      = Color.White,
+                                        style      = MaterialTheme.typography.headlineMedium,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
                         }
                         Spacer(Modifier.height(14.dp))
                         Text(doc.fullName,
@@ -366,11 +407,11 @@ fun DoctorDetailScreen(
                                 modifier         = Modifier
                                     .size(40.dp)
                                     .clip(RoundedCornerShape(10.dp))
-                                    .background(Color(0xFF2E7D32).copy(alpha = 0.12f)),
+                                    .background(MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f)),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(Icons.Default.RateReview, null,
-                                    tint     = Color(0xFF2E7D32),
+                                    tint     = MaterialTheme.colorScheme.tertiary,
                                     modifier = Modifier.size(20.dp))
                             }
                             Spacer(Modifier.width(14.dp))
@@ -418,85 +459,103 @@ fun ReviewRow(
     onEdit: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Column {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(IntrinsicSize.Min)
-        ) {
+    val avatarColors = listOf(
+        Color(0xFF1565C0), Color(0xFF2E7D32), Color(0xFF6A1B9A),
+        Color(0xFF00838F), Color(0xFFE65100), Color(0xFF37474F)
+    )
+    val bgColor  = avatarColors[abs(review.userFullName.hashCode()) % avatarColors.size]
+    val initials = review.userFullName.split(" ")
+        .take(2).mapNotNull { it.firstOrNull()?.uppercaseChar() }
+        .joinToString("")
+    val context  = LocalContext.current
+    val avatarUrl = review.userAvatarUrl?.let {
+        BuildConfig.BASE_URL.substringBefore("/api/") + it
+    }
+
+    Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
+        Row(verticalAlignment = Alignment.Top) {
             Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .fillMaxHeight()
-                    .background(
-                        if (isOwn) MaterialTheme.colorScheme.primary
-                        else Color.Transparent
-                    )
-            )
-            Column(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(horizontal = 14.dp, vertical = 10.dp)
+                modifier         = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(bgColor),
+                contentAlignment = Alignment.Center
             ) {
+                if (avatarUrl != null) {
+                    AsyncImage(
+                        model        = ImageRequest.Builder(context)
+                            .data(avatarUrl)
+                            .crossfade(true)
+                            .build(),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier     = Modifier.fillMaxSize().clip(CircleShape)
+                    )
+                } else {
+                    Text(initials,
+                        style      = EvaType.cardSub,
+                        color      = Color.White,
+                        fontWeight = FontWeight.SemiBold)
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
                 Row(
-                    modifier              = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment     = Alignment.CenterVertically
+                    verticalAlignment     = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Column(Modifier.weight(1f)) {
-                        Row(
-                            verticalAlignment     = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(6.dp)
-                        ) {
-                            Text(review.userFullName,
-                                style = EvaType.cardTitle)
-                            if (isOwn) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(MaterialTheme.colorScheme.primary)
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(stringResource(R.string.doctor_review_yours),
-                                        style = EvaType.cardMeta,
-                                        color = MaterialTheme.colorScheme.onPrimary)
-                                }
-                            }
-                        }
-                        Row {
-                            repeat(5) { i ->
-                                Icon(Icons.Default.Star, null,
-                                    tint     = if (i < review.rating) Color(0xFFFFC107)
-                                               else MaterialTheme.colorScheme.surfaceVariant,
-                                    modifier = Modifier.size(14.dp))
-                            }
-                        }
-                    }
+                    Text(review.userFullName, style = EvaType.cardTitle)
                     if (isOwn) {
-                        Row {
-                            IconButton(onClick = onEdit, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.Edit, null,
-                                    tint     = MaterialTheme.colorScheme.primary,
-                                    modifier = Modifier.size(18.dp))
-                            }
-                            IconButton(onClick = onDelete, modifier = Modifier.size(36.dp)) {
-                                Icon(Icons.Default.Delete, null,
-                                    tint     = MaterialTheme.colorScheme.error,
-                                    modifier = Modifier.size(18.dp))
-                            }
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.1f))
+                                .padding(horizontal = 6.dp, vertical = 2.dp)
+                        ) {
+                            Text(stringResource(R.string.doctor_review_yours),
+                                style = EvaType.cardMeta,
+                                color = MaterialTheme.colorScheme.primary)
                         }
                     }
                 }
-                review.comment?.let {
-                    Spacer(Modifier.height(4.dp))
-                    Text(it,
+                Spacer(Modifier.height(3.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    repeat(5) { i ->
+                        Icon(Icons.Default.Star, null,
+                            tint     = if (i < review.rating) Color(0xFFFFC107)
+                                       else MaterialTheme.colorScheme.surfaceVariant,
+                            modifier = Modifier.size(13.dp))
+                    }
+                    Spacer(Modifier.width(6.dp))
+                    Text(formatDate(review.createdAt),
                         style = EvaType.cardMeta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
+            if (isOwn) {
+                Row {
+                    IconButton(onClick = onEdit, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Edit, null,
+                            tint     = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(16.dp))
+                    }
+                    IconButton(onClick = onDelete, modifier = Modifier.size(32.dp)) {
+                        Icon(Icons.Default.Delete, null,
+                            tint     = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.size(16.dp))
+                    }
+                }
+            }
         }
-        HorizontalDivider(modifier = Modifier.padding(start = 3.dp))
+        review.comment?.takeIf { it.isNotBlank() }?.let { comment ->
+            Spacer(Modifier.height(6.dp))
+            Text(comment,
+                style    = EvaType.bodyText,
+                color    = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.8f),
+                modifier = Modifier.padding(start = 52.dp))
+        }
     }
+    HorizontalDivider(modifier = Modifier.padding(horizontal = 16.dp))
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -550,7 +609,7 @@ fun ReviewBottomSheet(
             Text(ratingLabel,
                 color      = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.Medium,
-                style      = MaterialTheme.typography.bodySmall)
+                style      = EvaType.cardMeta)
             OutlinedTextField(
                 value         = comment,
                 onValueChange = { comment = it },
