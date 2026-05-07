@@ -199,4 +199,30 @@ class EvaUiTest {
             composeTestRule.onAllNodesWithText("Профиль").fetchSemanticsNodes().size >= 2
         }
     }
+
+    @Test
+    fun t11_appointmentsScreen_showsBothTabs() {
+        loginAndReachHome()
+        composeTestRule.onAllNodesWithText("Записи").onFirst().performClick()
+        composeTestRule.waitUntil(10_000) {
+            composeTestRule.onAllNodesWithText("Мои записи").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onAllNodes(hasText("Предстоящие", substring = true))
+            .onFirst().assertIsDisplayed()
+        composeTestRule.onAllNodes(hasText("Прошедшие", substring = true))
+            .onFirst().assertIsDisplayed()
+    }
+
+    // ── T12: Profile screen shows Medical Card and Settings menu items [NETWORK]
+    @Test
+    fun t12_profileScreen_showsMenuItems() {
+        loginAndReachHome()
+        composeTestRule.onAllNodesWithText("Профиль").onFirst().performClick()
+        composeTestRule.waitUntil(10_000) {
+            composeTestRule.onAllNodesWithText("Медицинская карта").fetchSemanticsNodes().isNotEmpty()
+        }
+        composeTestRule.onNodeWithText("Медицинская карта").assertIsDisplayed()
+        composeTestRule.onAllNodes(hasText("Настройки", substring = true))
+            .onFirst().assertIsDisplayed()
+    }
 }
