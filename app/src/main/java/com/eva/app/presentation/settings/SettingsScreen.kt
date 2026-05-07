@@ -21,6 +21,7 @@ import com.eva.app.R
 import com.eva.app.data.local.TokenManager
 import com.eva.app.presentation.components.EvaType
 import com.eva.app.presentation.components.SectionHeader
+import com.eva.app.presentation.components.evaPurple
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.stateIn
@@ -82,7 +83,7 @@ fun SettingsScreen(
             SettingsSection(stringResource(R.string.settings_section_personal)) {
                 SettingsNavRow(
                     icon     = Icons.Default.Person,
-                    iconTint = Color(0xFF6A1B9A),
+                    iconTint = MaterialTheme.colorScheme.evaPurple,
                     title    = stringResource(R.string.settings_edit_profile),
                     subtitle = stringResource(R.string.settings_edit_profile_sub),
                     onClick  = onEditProfile
@@ -249,7 +250,7 @@ private fun ConsentRow(icon: ImageVector, label: String, granted: Boolean) {
         Icon(
             if (granted) Icons.Default.CheckCircle else Icons.Default.Cancel,
             null,
-            tint     = if (granted) Color(0xFF2E7D32) else MaterialTheme.colorScheme.error,
+            tint     = if (granted) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
             modifier = Modifier.size(22.dp)
         )
     }

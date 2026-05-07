@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -20,7 +21,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 
@@ -62,6 +62,8 @@ fun Modifier.scaledClick(onClick: () -> Unit): Modifier {
 
 @Composable
 private fun shimmerBrush(): Brush {
+    val base      = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+    val highlight = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.05f)
     val transition = rememberInfiniteTransition(label = "shimmer")
     val x by transition.animateFloat(
         initialValue = 0f,
@@ -73,7 +75,7 @@ private fun shimmerBrush(): Brush {
         label = "shimmer_x"
     )
     return Brush.linearGradient(
-        colors = listOf(Color(0xFFE0E0E0), Color(0xFFF5F5F5), Color(0xFFE0E0E0)),
+        colors = listOf(base, highlight, base),
         start  = Offset(x - 200f, 0f),
         end    = Offset(x + 200f, 0f)
     )
@@ -90,7 +92,7 @@ fun DoctorDetailSkeleton() {
         verticalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         Card(shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()) {
             Row(modifier = Modifier.padding(16.dp)) {
                 Box(Modifier.size(72.dp).shimmerBlock(brush, 18))
@@ -102,7 +104,7 @@ fun DoctorDetailSkeleton() {
                     Box(Modifier.fillMaxWidth(0.5f).height(11.dp).shimmerBlock(brush))
                 }
             }
-            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(Color(0xFFE0E0E0)))
+            Box(Modifier.fillMaxWidth().height(1.dp).padding(horizontal = 16.dp).background(MaterialTheme.colorScheme.outlineVariant))
             Row(Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.SpaceAround) {
                 repeat(3) {
                     Column(horizontalAlignment = androidx.compose.ui.Alignment.CenterHorizontally,
@@ -115,7 +117,7 @@ fun DoctorDetailSkeleton() {
             }
         }
         Card(shape = RoundedCornerShape(16.dp), elevation = CardDefaults.cardElevation(0.dp),
-            border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFFE0E0E0)),
+            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
             modifier = Modifier.fillMaxWidth()) {
             Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Box(Modifier.width(60.dp).height(13.dp).shimmerBlock(brush))
@@ -163,7 +165,7 @@ fun AppointmentCardSkeleton() {
                 Box(Modifier.width(72.dp).height(24.dp).shimmerBlock(brush, 20))
             }
             Spacer(Modifier.height(12.dp))
-            Box(Modifier.fillMaxWidth().height(1.dp).background(Color(0xFFE0E0E0)))
+            Box(Modifier.fillMaxWidth().height(1.dp).background(MaterialTheme.colorScheme.outlineVariant))
             Spacer(Modifier.height(12.dp))
             Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
                 repeat(3) {
@@ -194,16 +196,32 @@ fun ProfileNameSkeleton() {
 @Composable
 fun MedCardItemSkeleton() {
     val brush = shimmerBrush()
-    OutlinedCard(modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-        Row(modifier = Modifier.padding(14.dp), verticalAlignment = Alignment.Top) {
-            Box(Modifier.size(48.dp).shimmerBlock(brush, 12))
-            Spacer(Modifier.width(12.dp))
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Spacer(Modifier.height(2.dp))
-                Box(Modifier.fillMaxWidth(0.55f).height(13.dp).shimmerBlock(brush))
-                Box(Modifier.fillMaxWidth(0.4f).height(11.dp).shimmerBlock(brush))
-                Box(Modifier.fillMaxWidth(0.65f).height(10.dp).shimmerBlock(brush))
-                Box(Modifier.fillMaxWidth(0.35f).height(10.dp).shimmerBlock(brush))
+    Card(
+        modifier  = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 5.dp),
+        shape     = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Min)) {
+            Box(
+                modifier = Modifier
+                    .width(80.dp)
+                    .fillMaxHeight()
+                    .clip(RoundedCornerShape(topStart = 16.dp, bottomStart = 16.dp))
+                    .background(brush)
+            )
+            Column(
+                modifier            = Modifier
+                    .weight(1f)
+                    .padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(7.dp)
+            ) {
+                Box(Modifier.fillMaxWidth(0.45f).height(13.dp).shimmerBlock(brush))
+                Box(Modifier.fillMaxWidth(0.70f).height(11.dp).shimmerBlock(brush))
+                Box(Modifier.fillMaxWidth(0.55f).height(11.dp).shimmerBlock(brush))
+                Box(Modifier.fillMaxWidth(0.30f).height(11.dp).shimmerBlock(brush))
             }
         }
     }

@@ -27,23 +27,28 @@ private val LightColorScheme = lightColorScheme(
 )
 
 private val DarkColorScheme = darkColorScheme(
-    primary            = PrimaryBlue,
-    onPrimary          = Color.White,
-    primaryContainer   = Color(0xFF003580),
-    onPrimaryContainer = Color(0xFFD6E4FF),
-    secondary          = SecondaryTeal,
-    onSecondary        = Color.White,
-    secondaryContainer = Color(0xFF004D52),
-    tertiary           = TertiaryGreen,
-    onTertiary         = Color.White,
-    tertiaryContainer  = Color(0xFF1B4020),
-    background         = Color(0xFF0F1923),
-    surface            = Color(0xFF1A2530),
-    surfaceVariant     = Color(0xFF263040),
-    onBackground       = Color(0xFFE1E8EF),
-    onSurface          = Color(0xFFE1E8EF),
-    onSurfaceVariant   = Color(0xFFB0BEC5),
-    error              = Color(0xFFCF6679)
+    primary              = Color(0xFF90CAF9),  // Blue 200 — светлый, читается на тёмном
+    onPrimary            = Color(0xFF00305A),
+    primaryContainer     = Color(0xFF1A3F6F),
+    onPrimaryContainer   = Color(0xFFD6E4FF),
+    secondary            = Color(0xFF80DEEA),  // Cyan 200
+    onSecondary          = Color(0xFF003F45),
+    secondaryContainer   = Color(0xFF005057),
+    onSecondaryContainer = Color(0xFFCCF0F3),
+    tertiary             = Color(0xFFA5D6A7),  // Green 200
+    onTertiary           = Color(0xFF1B4020),
+    tertiaryContainer    = Color(0xFF1F4D24),
+    onTertiaryContainer  = Color(0xFFC8E6C9),
+    background           = Color(0xFF0F1923),
+    surface              = Color(0xFF1A2530),
+    surfaceVariant       = Color(0xFF263040),
+    onBackground         = Color(0xFFE1E8EF),
+    onSurface            = Color(0xFFE1E8EF),
+    onSurfaceVariant     = Color(0xFFB0BEC5),
+    error                = Color(0xFFCF6679),
+    onError              = Color(0xFF601410),
+    outline              = Color(0xFF546E7A),
+    outlineVariant       = Color(0xFF37474F)
 )
 
 @Composable

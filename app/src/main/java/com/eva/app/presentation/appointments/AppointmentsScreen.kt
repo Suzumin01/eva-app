@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -111,10 +112,11 @@ class AppointmentsViewModel @Inject constructor(
     }.getOrDefault(false)
 }
 
-private fun statusColor(status: String) = when (status) {
-    "scheduled" -> Color(0xFF1565C0)
-    "completed" -> Color(0xFF2E7D32)
-    else        -> Color(0xFFB71C1C)
+@Composable
+private fun statusColor(status: String): Color = when (status) {
+    "scheduled" -> MaterialTheme.colorScheme.primary
+    "completed" -> MaterialTheme.colorScheme.tertiary
+    else        -> MaterialTheme.colorScheme.error
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -208,11 +210,11 @@ fun AppointmentCard(a: AppointmentResponse, isWithin24h: Boolean, onCancel: () -
     if (showCancelDialog) {
         AlertDialog(
             onDismissRequest = { showCancelDialog = false },
-            title = { Text(stringResource(R.string.appointment_cancel_dialog_title)) },
+            title = { Text(stringResource(R.string.appointment_cancel_dialog_title), style = EvaType.sheetTitle) },
             text  = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(stringResource(R.string.appointment_cancel_dialog_text,
-                        a.doctorName, formatDate(a.slotDate)))
+                        a.doctorName, formatDate(a.slotDate)), style = EvaType.bodyText)
                     if (isWithin24h) {
                         Row(
                             modifier          = Modifier
@@ -335,27 +337,19 @@ fun AppointmentBottomSheet(
         HorizontalDivider()
         Spacer(Modifier.height(14.dp))
 
-        Row(
-            modifier              = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                SheetInfoRow(label = stringResource(R.string.label_clinic),  value = a.clinicName)
-                Spacer(Modifier.height(12.dp))
-                SheetInfoRow(label = stringResource(R.string.label_address), value = a.clinicAddress)
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                SheetInfoRow(label = stringResource(R.string.label_date),   value = formatDate(a.slotDate))
-                Spacer(Modifier.height(12.dp))
-                SheetInfoRow(label = stringResource(R.string.label_time),   value = formatTime(a.slotTime))
-            }
-        }
+        SheetInfoRow(Icons.Default.CalendarMonth, stringResource(R.string.label_date),   formatDate(a.slotDate))
+        Spacer(Modifier.height(12.dp))
+        SheetInfoRow(Icons.Default.AccessTime,    stringResource(R.string.label_time),   formatTime(a.slotTime))
+        Spacer(Modifier.height(12.dp))
+        SheetInfoRow(Icons.Default.LocalHospital, stringResource(R.string.label_clinic), a.clinicName)
+        Spacer(Modifier.height(12.dp))
+        SheetInfoRow(Icons.Default.LocationOn,    stringResource(R.string.label_address), a.clinicAddress)
 
         a.notes?.let {
             Spacer(Modifier.height(14.dp))
             HorizontalDivider()
             Spacer(Modifier.height(14.dp))
-            SheetInfoRow(label = stringResource(R.string.appointment_detail_note), value = it)
+            SheetInfoRow(Icons.Default.Notes, stringResource(R.string.appointment_detail_note), it)
         }
 
         if (a.status == "completed") {
@@ -398,12 +392,23 @@ fun AppointmentBottomSheet(
 }
 
 @Composable
-private fun SheetInfoRow(label: String, value: String) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Text(label,
-            style = EvaType.bodyText,
-            color = MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.height(2.dp))
-        Text(value, style = EvaType.bodyText)
+private fun SheetInfoRow(icon: ImageVector, label: String, value: String) {
+    Row(
+        modifier          = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.Top
+    ) {
+        Icon(
+            imageVector        = icon,
+            contentDescription = null,
+            modifier           = Modifier.size(18.dp).padding(top = 2.dp),
+            tint               = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Spacer(Modifier.width(12.dp))
+        Column {
+            Text(label,
+                style = EvaType.cardMeta,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(value, style = EvaType.cardSub)
+        }
     }
 }

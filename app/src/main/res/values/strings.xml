@@ -34,20 +34,17 @@
     <string name="link_register">Нет аккаунта? Зарегистрироваться</string>
 
     <!-- Register Screen -->
-    <string name="register_screen_title">Регистрация</string>
     <string name="register_subtitle">Создайте аккаунт ЕВА</string>
     <string name="label_password_min">Пароль (мин. 8 символов)</string>
     <string name="label_confirm_password">Повторите пароль</string>
     <string name="btn_create_account">Создать аккаунт</string>
 
     <!-- Forgot Password Screen -->
-    <string name="forgot_password_screen_title">Восстановление пароля</string>
     <string name="forgot_password_heading">Забыли пароль?</string>
     <string name="forgot_password_description">Введите email, привязанный к аккаунту. Мы пришлём инструкцию по сбросу пароля.</string>
     <string name="forgot_password_success">Инструкция отправлена на %s</string>
 
     <!-- Reset Password Screen -->
-    <string name="reset_password_screen_title">Новый пароль</string>
     <string name="reset_password_heading">Установите новый пароль</string>
     <string name="label_new_password">Новый пароль</string>
 
@@ -67,7 +64,6 @@
     <string name="menu_my_appointments_sub">Предстоящие и прошедшие приёмы</string>
 
     <!-- Doctors Screen -->
-    <string name="doctors_screen_title">Врачи</string>
     <string name="doctors_search_hint">Поиск по имени врача</string>
     <string name="doctors_filter_all_specs">Все специализации</string>
     <string name="doctors_filter_spec_label">Специализация</string>
@@ -80,8 +76,6 @@
     <string name="doctor_clinic_fallback">Клиника #%d</string>
 
     <!-- Clinics Screen -->
-    <string name="clinics_screen_title">Клиники</string>
-    <string name="specializations_screen_title">Специализации</string>
 
     <!-- Appointments Screen -->
     <string name="appointment_cancelled_success">Запись отменена</string>
@@ -103,7 +97,6 @@
     <string name="appointment_created">Создано: %s</string>
 
     <!-- Booking Screen -->
-    <string name="booking_screen_title">Запись на приём</string>
     <string name="booking_confirm_dialog_title">Подтвердить запись</string>
     <string name="booking_confirm_doctor">Врач: %s</string>
     <string name="booking_confirm_date">Дата: %s</string>
@@ -128,7 +121,6 @@
     <string name="notification_channel_label">Канал: %s</string>
 
     <!-- Medical Card Screen -->
-    <string name="medical_card_screen_title">Медицинская карта</string>
     <string name="medical_tab_appointments">Приёмы (%d)</string>
     <string name="medical_tab_ai">AI-анализы (%d)</string>
     <string name="medical_tab_documents">Документы (%d)</string>
@@ -162,6 +154,7 @@
     <string name="document_category_xray_upload">Снимок/МРТ</string>
     <string name="document_category_other">Другое</string>
     <string name="document_category_default">Документ</string>
+    <string name="file_type_other">Файл</string>
     <string name="upload_dialog_title">Загрузить документ</string>
     <string name="upload_choose_file">Выбрать файл (PDF / фото)</string>
     <string name="upload_type_label">Тип документа:</string>
@@ -180,15 +173,20 @@
     <string name="profile_logout_dialog_text">Вы будете перенаправлены на экран входа.</string>
     <string name="btn_logout">Выйти</string>
     <string name="profile_menu_medical_card">Медицинская карта</string>
-    <string name="profile_menu_medical_card_sub">История приёмов и AI-анализов</string>
+    <string name="profile_menu_medical_card_sub">Документы, снимки, анализы и рецепты</string>
     <string name="profile_menu_settings">Настройки</string>
     <string name="profile_menu_settings_sub">Профиль, согласия, тема оформления</string>
     <string name="profile_menu_logout">Выйти из аккаунта</string>
     <string name="profile_menu_logout_sub">Вернуться на экран входа</string>
     <string name="profile_photo_error">Ошибка загрузки фото</string>
-
-    <!-- Splash Screen -->
-    <string name="splash_subtitle">E-Health Virtual Assistant</string>
+    <string name="profile_avatar_sheet_title">Фото профиля</string>
+    <string name="profile_avatar_change">Изменить фото</string>
+    <string name="profile_avatar_delete">Удалить фото</string>
+    <string name="error_generic">Ошибка</string>
+    <string name="review_added">Отзыв добавлен!</string>
+    <string name="review_updated">Отзыв обновлён</string>
+    <string name="review_deleted">Отзыв удалён</string>
+    <string name="error_load_doctor">Не удалось загрузить врача</string>
 
     <!-- Onboarding -->
     <string name="onboarding_page1_title">Добро пожаловать в ЕВА</string>
@@ -318,11 +316,6 @@
     <string name="edit_profile_dob_placeholder">дд.мм.гггг</string>
     <string name="edit_profile_dob_error">Введите корректную дату (дд.мм.гггг)</string>
     <string name="edit_profile_dob_hint">Введите вручную или нажмите 📅</string>
-    <string name="edit_profile_section_insurance">Страхование</string>
-    <string name="edit_profile_insurance_label">Номер полиса ОМС / ДМС</string>
-    <string name="edit_profile_insurance_placeholder">16 или 20 цифр</string>
-    <string name="edit_profile_insurance_error">ОМС: 16 цифр, ДМС: 20 цифр</string>
-    <string name="edit_profile_insurance_count">%d цифр введено</string>
     <string name="edit_profile_section_medical">Медицинские данные</string>
     <string name="edit_profile_medical_hint">Данные сохраняются на сервере и автоматически прикрепляются к записям на приём</string>
     <string name="edit_profile_allergies_label">Аллергии</string>
@@ -330,6 +323,19 @@
     <string name="edit_profile_chronic_label">Хронические заболевания</string>
     <string name="edit_profile_chronic_placeholder">Диабет 2 типа, гипертония…</string>
     <string name="btn_save_changes">Сохранить изменения</string>
+
+    <!-- Document actions -->
+    <string name="doc_action_open">Открыть</string>
+    <string name="doc_action_edit">Редактировать</string>
+    <string name="doc_action_delete">Удалить</string>
+    <string name="doc_edit_title">Редактировать документ</string>
+
+    <!-- Health Setup Screen -->
+    <string name="health_setup_title">Ваш профиль здоровья</string>
+    <string name="health_setup_subtitle">Укажите аллергии и хронические заболевания — AI-анализ и врачи будут учитывать это при рекомендациях</string>
+    <string name="health_setup_optional_hint">Необязательно</string>
+    <string name="health_setup_save_btn">Сохранить</string>
+    <string name="health_setup_skip_btn">Пропустить — заполню позже</string>
 
     <!-- Common fallbacks -->
     <string name="home_fallback_user_name">Пользователь</string>

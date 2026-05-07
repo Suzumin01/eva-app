@@ -32,6 +32,7 @@ import com.eva.app.data.repository.NotificationRepository
 import com.eva.app.presentation.components.AnimatedListItem
 import com.eva.app.presentation.components.EvaType
 import com.eva.app.presentation.components.NotifItemSkeleton
+import com.eva.app.presentation.components.evaPurple
 import com.eva.app.util.Resource
 import com.eva.app.util.formatDateFull
 import com.eva.app.util.formatNotifDate
@@ -93,11 +94,12 @@ internal fun notifIcon(channel: String): ImageVector = when (channel) {
     else                                       -> Icons.Default.Notifications
 }
 
+@Composable
 internal fun notifIconColor(channel: String): Color = when (channel) {
-    "appointment"                              -> Color(0xFF1976D2)
+    "appointment"                              -> MaterialTheme.colorScheme.primary
     "reminder", "reminder_24h", "reminder_1h" -> Color(0xFFF57C00)
-    "cancellation"                             -> Color(0xFFC62828)
-    else                                       -> Color(0xFF6A1B9A)
+    "cancellation"                             -> MaterialTheme.colorScheme.error
+    else                                       -> MaterialTheme.colorScheme.evaPurple
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
