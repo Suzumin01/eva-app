@@ -1,7 +1,6 @@
 package com.eva.app.presentation.navigation
 
 sealed class Screen(val route: String) {
-    object Splash            : Screen("splash")
     object Onboarding        : Screen("onboarding")
     object ConsentCheck      : Screen("consent_check")
     object Home              : Screen("home")
@@ -34,6 +33,7 @@ sealed class Screen(val route: String) {
     object MedicalCard       : Screen("medical_card")
     object Settings          : Screen("settings")
     object EditProfile       : Screen("edit_profile")
+    object HealthSetup       : Screen("health_setup")
     object ForgotPassword    : Screen("forgot_password")
     object ResetPassword     : Screen("reset_password/{token}") {
         fun createRoute(token: String) = "reset_password/$token"

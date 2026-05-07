@@ -8,6 +8,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
@@ -23,7 +24,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.eva.app.presentation.components.EvaGradients
-import com.eva.app.presentation.components.GradientIconBox
 import com.eva.app.presentation.components.SectionHeader
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
@@ -242,16 +242,6 @@ fun BookingScreen(
     }
 
     Scaffold(
-        topBar = {
-            TopAppBar(
-                title = {},
-                navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
-                },
-                windowInsets = WindowInsets(0),
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
-            )
-        },
         bottomBar = {
             Surface(shadowElevation = 8.dp) {
                 Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)) {
@@ -267,7 +257,7 @@ fun BookingScreen(
                             Text(
                                 (bookState as BookState.Error).msg,
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall
+                                style = EvaType.cardMeta
                             )
                         }
                     }
@@ -296,96 +286,119 @@ fun BookingScreen(
             }
         }
     ) { padding ->
-        if (isLoading) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        when {
+            isLoading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 CircularProgressIndicator()
             }
-            return@Scaffold
-        }
-
-        if (availableDates.isEmpty() && !isLoading) {
-            Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Icon(Icons.Default.EventBusy, null, modifier = Modifier.size(64.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.height(12.dp))
-                    Text(stringResource(R.string.booking_no_slots_title),
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text(stringResource(R.string.booking_no_slots_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant)
+            availableDates.isEmpty() -> Column(Modifier.fillMaxSize()) {
+                IconButton(
+                    onClick  = onBack,
+                    modifier = Modifier.statusBarsPadding().padding(4.dp)
+                ) {
+                    Icon(Icons.Default.ArrowBack, null)
+                }
+                Box(
+                    modifier         = Modifier.weight(1f).fillMaxWidth(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Default.EventBusy, null, modifier = Modifier.size(64.dp),
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.height(12.dp))
+                        Text(stringResource(R.string.booking_no_slots_title),
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(stringResource(R.string.booking_no_slots_hint),
+                            style = EvaType.cardMeta,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
                 }
             }
-            return@Scaffold
-        }
-
-        LazyColumn(
-            modifier = Modifier.padding(padding),
-            contentPadding = PaddingValues(bottom = 16.dp)
-        ) {
-            doctor?.let { doc ->
-                item {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .background(Brush.linearGradient(EvaGradients.doctors))
-                            .padding(horizontal = 20.dp, vertical = 20.dp)
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            GradientIconBox(
-                                icon     = Icons.Default.Person,
-                                gradient = listOf(
-                                    Color.White.copy(alpha = 0.25f),
-                                    Color.White.copy(alpha = 0.10f)
-                                ),
-                                size     = 56.dp
-                            )
-                            Spacer(Modifier.width(14.dp))
-                            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+            else -> Box(Modifier.fillMaxSize()) {
+                LazyColumn(
+                    modifier       = Modifier.padding(bottom = padding.calculateBottomPadding()),
+                    contentPadding = PaddingValues(bottom = 16.dp)
+                ) {
+                    doctor?.let { doc ->
+                        item {
+                            Column(
+                                modifier            = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
+                                    .background(Brush.linearGradient(EvaGradients.doctors))
+                                    .statusBarsPadding()
+                                    .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(
+                                    modifier         = Modifier
+                                        .size(100.dp)
+                                        .clip(CircleShape)
+                                        .background(Color.White.copy(alpha = 0.22f)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Default.Person, null,
+                                        tint     = Color.White,
+                                        modifier = Modifier.size(54.dp))
+                                }
+                                Spacer(Modifier.height(14.dp))
                                 Text(doc.fullName,
-                                    style = EvaType.cardTitle,
-                                    color = Color.White)
+                                    style     = EvaType.heroTitle,
+                                    color     = Color.White,
+                                    textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                                Spacer(Modifier.height(4.dp))
                                 Text(doc.specializationName,
-                                    style = EvaType.heroStatLabel,
+                                    style = EvaType.heroSub,
                                     color = Color.White.copy(alpha = 0.85f))
+                                Spacer(Modifier.height(4.dp))
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(Icons.Default.LocationOn, null,
                                         tint     = Color.White.copy(alpha = 0.7f),
-                                        modifier = Modifier.size(11.dp))
-                                    Spacer(Modifier.width(2.dp))
+                                        modifier = Modifier.size(14.dp))
+                                    Spacer(Modifier.width(3.dp))
                                     Text(doc.clinicName,
-                                        style = EvaType.heroStatLabel,
+                                        style = EvaType.heroCaption,
                                         color = Color.White.copy(alpha = 0.7f))
                                 }
                             }
                         }
                     }
-                }
-            }
 
-            item {
-                DateSelectorRow(
-                    availableDates = availableDates,
-                    selectedDate   = selectedDate,
-                    slotsByDate    = slotsByDate,
-                    hasMoreDates   = hasMoreDates,
-                    isLoadingMore  = isLoadingMore,
-                    onSelectDate   = { selectedDate = it },
-                    onLoadMore     = { viewModel.loadMoreDates() }
-                )
-            }
+                    item {
+                        DateSelectorRow(
+                            availableDates = availableDates,
+                            selectedDate   = selectedDate,
+                            slotsByDate    = slotsByDate,
+                            hasMoreDates   = hasMoreDates,
+                            isLoadingMore  = isLoadingMore,
+                            onSelectDate   = { selectedDate = it },
+                            onLoadMore     = { viewModel.loadMoreDates() }
+                        )
+                    }
 
-            item {
-                selectedDate?.let { date ->
-                    SlotGrid(
-                        date         = date,
-                        slots        = slotsForDate,
-                        selectedSlot = selectedSlot,
-                        isLoading    = isLoadingSlots && !slotsByDate.containsKey(date),
-                        onSelectSlot = { slot ->
-                            selectedSlot = if (selectedSlot?.scheduleId == slot.scheduleId) null else slot
+                    item {
+                        selectedDate?.let { date ->
+                            SlotGrid(
+                                date         = date,
+                                slots        = slotsForDate,
+                                selectedSlot = selectedSlot,
+                                isLoading    = isLoadingSlots && !slotsByDate.containsKey(date),
+                                onSelectSlot = { slot ->
+                                    selectedSlot = if (selectedSlot?.scheduleId == slot.scheduleId) null else slot
+                                }
+                            )
                         }
-                    )
+                    }
+                }
+                Row(
+                    modifier          = Modifier
+                        .fillMaxWidth()
+                        .statusBarsPadding()
+                        .padding(horizontal = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                    }
                 }
             }
         }
@@ -424,7 +437,7 @@ private fun BookingConfirmSheet(
                     modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.booking_confirm_doctor, doctorName),
-                    style = MaterialTheme.typography.bodyMedium)
+                    style = EvaType.bodyText)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.CalendarToday, null,
@@ -432,7 +445,7 @@ private fun BookingConfirmSheet(
                     modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.booking_confirm_date, formatDate(slot.slotDate)),
-                    style = MaterialTheme.typography.bodyMedium)
+                    style = EvaType.bodyText)
             }
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Schedule, null,
@@ -440,7 +453,7 @@ private fun BookingConfirmSheet(
                     modifier = Modifier.size(18.dp))
                 Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.booking_confirm_time, formatTime(slot.slotTime)),
-                    style = MaterialTheme.typography.bodyMedium)
+                    style = EvaType.bodyText)
             }
             Spacer(Modifier.height(4.dp))
             OutlinedTextField(
@@ -478,7 +491,7 @@ private fun DateSelectorRow(
     onSelectDate   : (String) -> Unit,
     onLoadMore     : () -> Unit
 ) {
-    Column(modifier = Modifier.padding(horizontal = 16.dp)) {
+    Column(modifier = Modifier.padding(horizontal = 16.dp).padding(top = 16.dp)) {
         SectionHeader(stringResource(R.string.booking_select_date_label))
         Spacer(Modifier.height(6.dp))
         Row(
@@ -570,7 +583,7 @@ private fun SlotChip(
             formatTime(slot.slotTime),
             fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
             color      = textColor,
-            style      = MaterialTheme.typography.bodyMedium
+            style      = EvaType.cardSub
         )
     }
 }
@@ -609,7 +622,7 @@ private fun SlotGrid(
             slots.isEmpty() -> Text(
                 stringResource(R.string.booking_no_slots_for_date),
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                style = MaterialTheme.typography.bodySmall
+                style = EvaType.cardMeta
             )
             else -> slots.chunked(4).forEach { row ->
                 Row(

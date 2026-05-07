@@ -27,6 +27,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.eva.app.R
 import com.eva.app.data.local.TokenManager
+import com.eva.app.presentation.components.EvaType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -101,23 +102,22 @@ fun OnboardingScreen(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     modifier = Modifier.padding(40.dp)
                 ) {
-                    Surface(
-                        shape    = RoundedCornerShape(32.dp),
-                        color    = Color.White.copy(alpha = 0.2f),
-                        modifier = Modifier.size(120.dp)
+                    Box(
+                        modifier = Modifier
+                            .size(120.dp)
+                            .clip(RoundedCornerShape(32.dp))
+                            .background(Color.White.copy(alpha = 0.2f)),
+                        contentAlignment = Alignment.Center
                     ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Icon(page.icon, null, tint = Color.White,
-                                modifier = Modifier.size(72.dp))
-                        }
+                        Icon(page.icon, null, tint = Color.White,
+                            modifier = Modifier.size(72.dp))
                     }
                     Spacer(Modifier.height(40.dp))
-                    Text(page.title, color = Color.White, fontSize = 26.sp,
-                        fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
+                    Text(page.title, color = Color.White,
+                        style = EvaType.heroTitle, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))
                     Text(page.description, color = Color.White.copy(alpha = 0.88f),
-                        style = MaterialTheme.typography.bodyLarge,
-                        textAlign = TextAlign.Center, lineHeight = 24.sp)
+                        style = EvaType.bodyText, textAlign = TextAlign.Center)
                 }
             }
         }
@@ -184,7 +184,7 @@ fun OnboardingScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.btn_start),
                         color = pages.last().gradientStart,
-                        fontWeight = FontWeight.Bold, fontSize = 16.sp)
+                        style = EvaType.cardTitle)
                 }
             }
         }

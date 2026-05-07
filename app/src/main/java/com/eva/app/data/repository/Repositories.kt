@@ -4,6 +4,8 @@ import com.eva.app.data.api.*
 import com.eva.app.data.local.TokenManager
 import com.eva.app.util.Resource
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.MultipartBody
 import okhttp3.RequestBody
 import okhttp3.RequestBody.Companion.asRequestBody
@@ -57,9 +59,10 @@ class AuthRepository @Inject constructor(
     }
 
     suspend fun register(
-        fullName: String, email: String, phone: String?, password: String
+        fullName: String, email: String, phone: String?, password: String,
+        dateOfBirth: String? = null
     ): Resource<Map<String, String>> {
-        val result = safeApiCall { api.register(RegisterRequest(fullName, email, phone, password)) }
+        val result = safeApiCall { api.register(RegisterRequest(fullName, email, phone, password, dateOfBirth = dateOfBirth)) }
         if (result is Resource.Success) {
             val loginResult = safeApiCall { api.login(LoginRequest(email, password)) }
             if (loginResult is Resource.Success) {
@@ -84,8 +87,7 @@ class AuthRepository @Inject constructor(
         phone: String?,
         dateOfBirth: String? = null,
         allergies: String? = null,
-        chronicDiseases: String? = null,
-        insurancePolicy: String? = null
+        chronicDiseases: String? = null
     ): Resource<UserProfileResponse> {
         val result = safeApiCall {
             api.updateProfile(UpdateProfileRequest(
@@ -93,8 +95,7 @@ class AuthRepository @Inject constructor(
                 phone           = phone,
                 dateOfBirth     = dateOfBirth,
                 allergies       = allergies,
-                chronicDiseases = chronicDiseases,
-                insurancePolicy = insurancePolicy
+                chronicDiseases = chronicDiseases
             ))
         }
         if (result is Resource.Success && fullName != null) {
@@ -126,6 +127,8 @@ class AuthRepository @Inject constructor(
         val part    = MultipartBody.Part.createFormData("photo", file.name, reqFile)
         return safeApiCall { api.uploadPhoto(part) }
     }
+
+    suspend fun deletePhoto(): Resource<Map<String, String>> = safeApiCall { api.deletePhoto() }
 
     suspend fun logout() = tokenManager.clearAuth()
 }
@@ -173,13 +176,13 @@ class DoctorRepository @Inject constructor(
         safeApiCall { api.canReview(doctorId) }
 
     suspend fun updateReview(reviewId: String, rating: Int, comment: String?): Resource<Map<String, String>> =
-        safeApiCall { api.updateReview(reviewId, UpdateReviewRequest(rating, comment)) }
+        safeApiCall { api.updateReview(reviewId, ReviewRequest(rating, comment)) }
 
     suspend fun deleteReview(reviewId: String): Resource<Map<String, String>> =
         safeApiCall { api.deleteReview(reviewId) }
 
     suspend fun addReview(doctorId: Int, rating: Int, comment: String?): Resource<Map<String, String>> =
-        safeApiCall { api.addReview(doctorId, AddReviewRequest(rating, comment)) }
+        safeApiCall { api.addReview(doctorId, ReviewRequest(rating, comment)) }
 }
 
 private fun DoctorResponse.toCached() = com.eva.app.data.local.room.CachedDoctor(
@@ -247,6 +250,9 @@ class DocumentRepository @Inject constructor(private val api: EvaApi) {
 
     suspend fun deleteDocument(id: String): Resource<Map<String, String>> =
         safeApiCall { api.deleteDocument(id) }
+
+    suspend fun updateDocument(id: String, description: String?, category: String?): Resource<Map<String, String>> =
+        safeApiCall { api.updateDocument(id, com.eva.app.data.api.UpdateDocumentRequest(description, category)) }
 }
 
 @Singleton
@@ -258,11 +264,16 @@ class ClinicRepository @Inject constructor(private val api: EvaApi) {
 @Singleton
 class SpecializationRepository @Inject constructor(private val api: EvaApi) {
     @Volatile private var cachedSpecs: List<com.eva.app.data.api.SpecializationResponse>? = null
+    private val mutex = kotlinx.coroutines.sync.Mutex()
 
     suspend fun getSpecializations(): Resource<List<com.eva.app.data.api.SpecializationResponse>> {
         cachedSpecs?.let { return Resource.Success(it) }
-        return safeApiCall { api.getSpecializations() }.also { result ->
-            if (result is Resource.Success) cachedSpecs = result.data
+        return mutex.withLock {
+            // Повторная проверка внутри lock — другой корутин мог уже заполнить кэш
+            cachedSpecs?.let { return@withLock Resource.Success(it) }
+            safeApiCall { api.getSpecializations() }.also { result ->
+                if (result is Resource.Success) cachedSpecs = result.data
+            }
         }
     }
 

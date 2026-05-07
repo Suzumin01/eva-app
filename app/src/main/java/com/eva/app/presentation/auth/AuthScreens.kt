@@ -1,6 +1,12 @@
 package com.eva.app.presentation.auth
 
+import android.app.DatePickerDialog
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.platform.LocalContext
+import java.util.Calendar
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -27,6 +33,7 @@ import com.eva.app.R
 import com.eva.app.data.repository.AuthRepository
 import com.eva.app.util.ErrorMapper
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -53,10 +60,14 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    fun register(fullName: String, email: String, phone: String?, password: String) {
+    fun register(fullName: String, email: String, phone: String?, password: String, dob: String? = null) {
         viewModelScope.launch {
             _registerState.value = AuthState.Loading
-            _registerState.value = when (val r = authRepository.register(fullName, email, phone, password)) {
+            val dobIso = dob?.takeIf { it.isNotBlank() }?.let { d ->
+                val parts = d.split(".")
+                if (parts.size == 3) "${parts[2]}-${parts[1]}-${parts[0]}" else null
+            }
+            _registerState.value = when (val r = authRepository.register(fullName, email, phone, password, dobIso)) {
                 is Resource.Success -> AuthState.Success("Регистрация успешна")
                 is Resource.Error   -> if (r.message == "REGISTERED_LOGIN_FAILED")
                     AuthState.Success("Аккаунт создан. Войдите с вашими данными.")
@@ -80,6 +91,7 @@ sealed class AuthState {
     data class Error(val message: String)   : AuthState()
 }
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 fun LoginScreen(
     onLoginSuccess: () -> Unit,
@@ -115,22 +127,32 @@ fun LoginScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(72.dp))
-            Surface(
-                shape = RoundedCornerShape(28.dp),
-                color = Color.White.copy(alpha = 0.2f),
-                modifier = Modifier.size(88.dp)
+            Box(
+                modifier = Modifier
+                    .size(88.dp)
+                    .clip(RoundedCornerShape(28.dp))
+                    .background(Color.White.copy(alpha = 0.2f))
+                    .combinedClickable(
+                        onClick = {},
+                        onLongClick = {
+                            if (com.eva.app.BuildConfig.DEBUG) {
+                                email = "anna.k@demo.ru"
+                                password = "Demo1234!"
+                                viewModel.login("anna.k@demo.ru", "Demo1234!")
+                            }
+                        }
+                    ),
+                contentAlignment = Alignment.Center
             ) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.LocalHospital, null,
-                        tint = Color.White, modifier = Modifier.size(52.dp))
-                }
+                Icon(Icons.Default.LocalHospital, null,
+                    tint = Color.White, modifier = Modifier.size(52.dp))
             }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.app_name),
                 color = Color.White, fontSize = 40.sp, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.app_subtitle),
                 color = Color.White.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.bodyMedium)
+                style = EvaType.bodyText)
 
             Spacer(Modifier.height(48.dp))
 
@@ -147,7 +169,7 @@ fun LoginScreen(
                         fontWeight = FontWeight.Bold, fontSize = 20.sp)
                     Spacer(Modifier.height(4.dp))
                     Text(stringResource(R.string.login_subtitle),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = EvaType.cardMeta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(20.dp))
 
@@ -176,8 +198,13 @@ fun LoginScreen(
                         singleLine = true, modifier = Modifier.fillMaxWidth(),
                         shape = RoundedCornerShape(12.dp))
 
+                    TextButton(
+                        onClick  = onForgotPassword,
+                        modifier = Modifier.align(Alignment.End)
+                    ) { Text(stringResource(R.string.link_forgot_password)) }
+
                     if (state is AuthState.Error) {
-                        Spacer(Modifier.height(10.dp))
+                        Spacer(Modifier.height(4.dp))
                         Row(modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically) {
                             Icon(Icons.Default.ErrorOutline, null,
@@ -186,7 +213,7 @@ fun LoginScreen(
                             Spacer(Modifier.width(8.dp))
                             Text((state as AuthState.Error).message,
                                 color = MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodySmall)
+                                style = EvaType.cardMeta)
                         }
                     }
 
@@ -206,13 +233,6 @@ fun LoginScreen(
                             Text(stringResource(R.string.btn_login),
                                 fontWeight = FontWeight.SemiBold, fontSize = 16.sp)
                     }
-
-                    Spacer(Modifier.height(4.dp))
-                    TextButton(
-                        onClick  = onForgotPassword,
-                        modifier = Modifier.align(Alignment.End)
-                    ) { Text(stringResource(R.string.link_forgot_password),
-                        style = MaterialTheme.typography.bodySmall) }
 
                     Spacer(Modifier.height(8.dp))
                     TextButton(
@@ -238,10 +258,27 @@ fun RegisterScreen(
     var fullName        by remember { mutableStateOf("") }
     var email           by remember { mutableStateOf("") }
     var phone           by remember { mutableStateOf("") }
+    var dob             by remember { mutableStateOf("") }
     var password        by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
     var passVisible     by remember { mutableStateOf(false) }
     val passwordsMatch  = password == confirmPassword || confirmPassword.isEmpty()
+    val context         = LocalContext.current
+
+    fun showDatePicker() {
+        val cal = Calendar.getInstance()
+        val parts = dob.split(".")
+        if (parts.size == 3) {
+            cal.set(parts[2].toIntOrNull() ?: cal.get(Calendar.YEAR),
+                (parts[1].toIntOrNull() ?: 1) - 1,
+                parts[0].toIntOrNull() ?: 1)
+        }
+        DatePickerDialog(context, { _, y, m, d ->
+            dob = "%02d.%02d.%04d".format(d, m + 1, y)
+        }, cal.get(Calendar.YEAR), cal.get(Calendar.MONTH), cal.get(Calendar.DAY_OF_MONTH))
+            .also { it.datePicker.maxDate = System.currentTimeMillis() }
+            .show()
+    }
 
     LaunchedEffect(state) {
         if (state is AuthState.Success) { viewModel.resetStates(); onRegisterSuccess() }
@@ -266,7 +303,7 @@ fun RegisterScreen(
             .padding(24.dp)) {
 
             Text(stringResource(R.string.register_subtitle),
-                style = MaterialTheme.typography.bodyMedium,
+                style = EvaType.bodyText,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(24.dp))
 
@@ -291,6 +328,26 @@ fun RegisterScreen(
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
                 singleLine = true, modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(12.dp))
+            Spacer(Modifier.height(12.dp))
+
+            OutlinedTextField(
+                value         = dob,
+                onValueChange = {},
+                readOnly      = true,
+                label         = { Text(stringResource(R.string.edit_profile_dob_label)) },
+                leadingIcon   = { Icon(Icons.Default.CalendarMonth, null) },
+                trailingIcon  = {
+                    IconButton(onClick = { showDatePicker() }) {
+                        Icon(Icons.Default.CalendarMonth, null,
+                            tint = MaterialTheme.colorScheme.primary)
+                    }
+                },
+                placeholder   = { Text(stringResource(R.string.edit_profile_dob_placeholder)) },
+                supportingText = { Text(stringResource(R.string.edit_profile_dob_hint)) },
+                singleLine    = true,
+                modifier      = Modifier.fillMaxWidth().clickable { showDatePicker() },
+                shape         = RoundedCornerShape(12.dp)
+            )
             Spacer(Modifier.height(12.dp))
 
             OutlinedTextField(value = password, onValueChange = { password = it },
@@ -333,7 +390,7 @@ fun RegisterScreen(
                     Spacer(Modifier.width(8.dp))
                     Text((state as AuthState.Error).message,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = EvaType.cardMeta)
                 }
             }
 
@@ -344,7 +401,8 @@ fun RegisterScreen(
                         fullName.trim(),
                         email.trim(),
                         phone.trim().ifBlank { null },
-                        password
+                        password,
+                        dob.ifBlank { null }
                     )
                 },
                 enabled  = state !is AuthState.Loading
@@ -443,7 +501,7 @@ fun ForgotPasswordScreen(
             Spacer(Modifier.height(8.dp))
             Text(
                 stringResource(R.string.forgot_password_description),
-                style = MaterialTheme.typography.bodyMedium,
+                style = EvaType.bodyText,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             Spacer(Modifier.height(28.dp))
@@ -468,7 +526,7 @@ fun ForgotPasswordScreen(
                     Spacer(Modifier.width(8.dp))
                     Text((state as ForgotPasswordState.Error).message,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = EvaType.cardMeta)
                 }
             }
 
@@ -488,7 +546,7 @@ fun ForgotPasswordScreen(
                     Spacer(Modifier.width(8.dp))
                     Text(stringResource(R.string.forgot_password_success, email),
                         color = MaterialTheme.colorScheme.onPrimaryContainer,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = EvaType.cardMeta)
                 }
             }
 
@@ -629,7 +687,7 @@ fun ResetPasswordScreen(
                     Spacer(Modifier.width(8.dp))
                     Text((state as ResetPasswordState.Error).message,
                         color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall)
+                        style = EvaType.cardMeta)
                 }
             }
 

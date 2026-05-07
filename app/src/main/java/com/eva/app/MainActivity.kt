@@ -7,6 +7,7 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.compose.animation.*
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
@@ -20,6 +21,9 @@ import androidx.compose.material.icons.outlined.*
 import androidx.compose.material3.*
 import androidx.compose.ui.draw.scale
 import androidx.compose.runtime.*
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
@@ -29,6 +33,7 @@ import com.eva.app.R
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavDestination.Companion.hierarchy
+import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavType
 import androidx.navigation.compose.*
 import androidx.navigation.navArgument
@@ -57,9 +62,9 @@ import com.eva.app.presentation.notifications.NotificationsScreen
 import com.eva.app.presentation.notifications.NotificationsViewModel
 import com.eva.app.presentation.onboarding.OnboardingScreen
 import com.eva.app.presentation.profile.ProfileScreen
+import com.eva.app.presentation.health.HealthSetupScreen
 import com.eva.app.presentation.settings.EditProfileScreen
 import com.eva.app.presentation.settings.SettingsScreen
-import com.eva.app.presentation.splash.SplashScreen
 import com.eva.app.presentation.symptoms.SymptomsFormScreen
 import com.eva.app.presentation.symptoms.SymptomsResultScreen
 import com.eva.app.presentation.symptoms.SymptomsScreen
@@ -72,6 +77,21 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import javax.inject.Inject
+
+private object SlideTransition {
+    val enter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideInHorizontally(tween(300)) { it } + fadeIn(tween(200))
+    }
+    val exit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutHorizontally(tween(300)) { -it / 3 } + fadeOut(tween(200))
+    }
+    val popEnter: AnimatedContentTransitionScope<NavBackStackEntry>.() -> EnterTransition = {
+        slideInHorizontally(tween(300)) { -it / 3 } + fadeIn(tween(200))
+    }
+    val popExit: AnimatedContentTransitionScope<NavBackStackEntry>.() -> ExitTransition = {
+        slideOutHorizontally(tween(300)) { it } + fadeOut(tween(200))
+    }
+}
 
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
@@ -86,19 +106,28 @@ class MainActivity : ComponentActivity() {
     private val pendingNotifId = mutableStateOf<String?>(null)
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val splashScreen = installSplashScreen()
         super.onCreate(savedInstanceState)
+
+        var startDestination by mutableStateOf<String?>(null)
+        splashScreen.setKeepOnScreenCondition { startDestination == null }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             notificationPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS)
         }
 
-        // Читаем notifId из пуша (если запустились через клик на уведомление)
         pendingNotifId.value = intent.getStringExtra("notifId")
 
-        // Регистрируем FCM-токен если пользователь авторизован — не блокируем main thread
         lifecycleScope.launch(Dispatchers.IO) {
-            val hasToken = tokenManager.token.first() != null
-            if (hasToken) {
+            val token          = tokenManager.token.first()
+            val refresh        = tokenManager.refreshToken.first()
+            val consent        = tokenManager.consentShown.first()
+            val onboardingDone = tokenManager.onboardingDone.first()
+
+            tokenManager.cachedToken        = token
+            tokenManager.cachedRefreshToken = refresh
+
+            if (token != null) {
                 FirebaseMessaging.getInstance().token.addOnSuccessListener { fcmToken ->
                     lifecycleScope.launch(Dispatchers.IO) {
                         tokenManager.saveFcmToken(fcmToken)
@@ -106,19 +135,31 @@ class MainActivity : ComponentActivity() {
                     }
                 }
             }
+
+            withContext(Dispatchers.Main) {
+                startDestination = when {
+                    token == null && !onboardingDone -> Screen.Onboarding.route
+                    token == null                    -> Screen.Login.route
+                    !consent                         -> Screen.Consent.route
+                    else                             -> Screen.Home.route
+                }
+            }
         }
 
         setContent {
+            val dest      = startDestination
             val darkTheme by tokenManager.darkTheme.collectAsState(initial = false)
-            EvaTheme(darkTheme = darkTheme) {
-                EvaApp(
-                    startDestination = Screen.Splash.route,
-                    tokenManager     = tokenManager,
-                    darkTheme        = darkTheme,
-                    pendingNotifId   = pendingNotifId.value,
-                    onNotifConsumed  = { pendingNotifId.value = null },
-                    findSpecId       = specializationRepository::findIdByName
-                )
+            if (dest != null) {
+                EvaTheme(darkTheme = darkTheme) {
+                    EvaApp(
+                        startDestination = dest,
+                        tokenManager     = tokenManager,
+                        darkTheme        = darkTheme,
+                        pendingNotifId   = pendingNotifId.value,
+                        onNotifConsumed  = { pendingNotifId.value = null },
+                        findSpecId       = specializationRepository::findIdByName
+                    )
+                }
             }
         }
     }
@@ -258,12 +299,6 @@ fun EvaApp(
             popExitTransition   = { fadeOut(tween(200)) }
         ) {
 
-            composable(Screen.Splash.route) {
-                SplashScreen(onDestinationReady = { dest ->
-                    navController.navigate(dest) { popUpTo(Screen.Splash.route) { inclusive = true } }
-                })
-            }
-
             composable(Screen.Onboarding.route) {
                 OnboardingScreen(onDone = {
                     navController.navigate(Screen.Login.route) { popUpTo(0) { inclusive = true } }
@@ -281,7 +316,10 @@ fun EvaApp(
                     onForgotPassword = { navController.navigate(Screen.ForgotPassword.route) }
                 )
             }
-            composable(Screen.ForgotPassword.route) {
+            composable(Screen.ForgotPassword.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 ForgotPasswordScreen(
                     onBack = { navController.popBackStack() },
                     onTokenReceived = { token ->
@@ -289,7 +327,10 @@ fun EvaApp(
                     }
                 )
             }
-            composable(Screen.ResetPassword.route) { backStack ->
+            composable(Screen.ResetPassword.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) { backStack ->
                 val token = backStack.arguments?.getString("token") ?: ""
                 ResetPasswordScreen(
                     token = token,
@@ -299,7 +340,10 @@ fun EvaApp(
                     onBack = { navController.popBackStack() }
                 )
             }
-            composable(Screen.Register.route) {
+            composable(Screen.Register.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 RegisterScreen(
                     onRegisterSuccess = {
                         navController.navigate(Screen.Consent.route) { popUpTo(0) { inclusive = true } }
@@ -313,7 +357,7 @@ fun EvaApp(
                 val consentShown by vm.consentShown.collectAsState(initial = null)
                 LaunchedEffect(consentShown) {
                     val shown = consentShown ?: return@LaunchedEffect
-                    val dest  = if (shown) Screen.Home.route else Screen.Consent.route
+                    val dest  = if (shown) Screen.HealthSetup.route else Screen.Consent.route
                     navController.navigate(dest) { popUpTo(0) { inclusive = true } }
                 }
                 Box(Modifier.fillMaxSize()) {
@@ -323,6 +367,12 @@ fun EvaApp(
 
             composable(Screen.Consent.route) {
                 ConsentScreen(onDone = {
+                    navController.navigate(Screen.HealthSetup.route) { popUpTo(0) { inclusive = true } }
+                })
+            }
+
+            composable(Screen.HealthSetup.route) {
+                HealthSetupScreen(onDone = {
                     navController.navigate(Screen.Home.route) { popUpTo(0) { inclusive = true } }
                 })
             }
@@ -355,17 +405,26 @@ fun EvaApp(
                     onOpenSettings    = { navController.navigate(Screen.Settings.route) }
                 )
             }
-            composable(Screen.MedicalCard.route) {
+            composable(Screen.MedicalCard.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 MedicalCardScreen(onBack = { navController.popBackStack() })
             }
-            composable(Screen.Settings.route) {
+            composable(Screen.Settings.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 SettingsScreen(
                     onBack         = { navController.popBackStack() },
                     onEditProfile  = { navController.navigate(Screen.EditProfile.route) },
                     onEditConsents = { navController.navigate(Screen.Consent.route) }
                 )
             }
-            composable(Screen.EditProfile.route) {
+            composable(Screen.EditProfile.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 EditProfileScreen(
                     onBack  = { navController.popBackStack() },
                     onSaved = { navController.popBackStack() }
@@ -376,7 +435,9 @@ fun EvaApp(
                 listOf(
                     navArgument("specId")   { type = NavType.IntType; defaultValue = -1 },
                     navArgument("clinicId") { type = NavType.IntType; defaultValue = -1 }
-                )
+                ),
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
             ) { entry ->
                 val specId   = entry.arguments?.getInt("specId")?.takeIf   { it != -1 }
                 val clinicId = entry.arguments?.getInt("clinicId")?.takeIf { it != -1 }
@@ -389,14 +450,20 @@ fun EvaApp(
                 )
             }
             composable(Screen.DoctorDetail.route,
-                listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->
+                listOf(navArgument("doctorId") { type = NavType.IntType }),
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) { entry ->
                 val id = entry.arguments?.getInt("doctorId") ?: return@composable
                 DoctorDetailScreen(doctorId = id,
                     onBack = { navController.popBackStack() },
                     onBook = { navController.navigate(Screen.Booking.createRoute(it)) })
             }
             composable(Screen.Booking.route,
-                listOf(navArgument("doctorId") { type = NavType.IntType })) { entry ->
+                listOf(navArgument("doctorId") { type = NavType.IntType }),
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) { entry ->
                 val id = entry.arguments?.getInt("doctorId") ?: return@composable
                 MedicalConsentGate(onRequestConsent = { navController.navigate(Screen.Consent.route) }) {
                     BookingScreen(doctorId = id,
@@ -405,13 +472,19 @@ fun EvaApp(
                 }
             }
 
-            composable(Screen.Clinics.route) {
+            composable(Screen.Clinics.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 val vm = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>()
                 ClinicsScreen(onBack = { navController.popBackStack() },
                     onClinicClick = { navController.navigate(Screen.ClinicDetail.createRoute(it)) }, viewModel = vm)
             }
             composable(Screen.ClinicDetail.route,
-                listOf(navArgument("clinicId") { type = NavType.IntType })) { entry ->
+                listOf(navArgument("clinicId") { type = NavType.IntType }),
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) { entry ->
                 val clinicId    = entry.arguments?.getInt("clinicId") ?: return@composable
                 val parentEntry = remember(entry) { navController.getBackStackEntry(Screen.Clinics.route) }
                 val clinicsVm   = androidx.hilt.navigation.compose.hiltViewModel<ClinicsViewModel>(parentEntry)
@@ -425,19 +498,28 @@ fun EvaApp(
                 )
                 else LaunchedEffect(Unit) { navController.popBackStack() }
             }
-            composable(Screen.Specializations.route) {
+            composable(Screen.Specializations.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 SpecializationsScreen(onBack = { navController.popBackStack() },
                     onSpecClick = { navController.navigate(Screen.Doctors.createRoute(it)) })
             }
 
-            composable(Screen.SymptomsForm.route) {
+            composable(Screen.SymptomsForm.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 AiConsentGate(onRequestConsent = { navController.navigate(Screen.Consent.route) }) {
                     SymptomsFormScreen(onBack = { navController.popBackStack() },
                         onResult = { navController.navigate(Screen.SymptomsResult.route) },
                         viewModel = symptomsVm)
                 }
             }
-            composable(Screen.SymptomsResult.route) {
+            composable(Screen.SymptomsResult.route,
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
+            ) {
                 SymptomsResultScreen(
                     onBack       = { navController.popBackStack(Screen.SymptomsForm.route, inclusive = true) },
                     onFindDoctor = { specName ->
@@ -451,7 +533,9 @@ fun EvaApp(
 
             composable(
                 Screen.Notifications.route,
-                listOf(navArgument("notifId") { type = NavType.StringType; defaultValue = "" })
+                listOf(navArgument("notifId") { type = NavType.StringType; defaultValue = "" }),
+                enterTransition = SlideTransition.enter, exitTransition = SlideTransition.exit,
+                popEnterTransition = SlideTransition.popEnter, popExitTransition = SlideTransition.popExit
             ) { entry ->
                 val notifId = entry.arguments?.getString("notifId")?.takeIf { it.isNotEmpty() }
                 NotificationsScreen(

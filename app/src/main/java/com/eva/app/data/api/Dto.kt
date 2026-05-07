@@ -8,7 +8,8 @@ data class RegisterRequest(
     val phone: String?,
     val password: String,
     val consentMedical: Boolean = true,
-    val consentAi: Boolean = true
+    val consentAi: Boolean = true,
+    val dateOfBirth: String? = null
 )
 
 data class LoginRequest(
@@ -45,8 +46,7 @@ data class UserProfileResponse(
     val avatarUrl: String? = null,
     val dateOfBirth: String? = null,
     val allergies: String? = null,
-    val chronicDiseases: String? = null,
-    val insurancePolicy: String? = null
+    val chronicDiseases: String? = null
 )
 
 data class AvatarUrlResponse(val avatarUrl: String)
@@ -68,8 +68,7 @@ data class UpdateProfileRequest(
     val phone: String?,
     val dateOfBirth: String? = null,
     val allergies: String? = null,
-    val chronicDiseases: String? = null,
-    val insurancePolicy: String? = null
+    val chronicDiseases: String? = null
 )
 
 data class DocumentResponse(
@@ -81,6 +80,11 @@ data class DocumentResponse(
     val description: String?,
     val createdAt:   String,
     val downloadUrl: String
+)
+
+data class UpdateDocumentRequest(
+    val description: String? = null,
+    val category:    String? = null
 )
 
 data class DoctorResponse(
@@ -107,17 +111,13 @@ data class ReviewResponse(
     val reviewId: String,
     val userId: String,
     val userFullName: String,
+    val userAvatarUrl: String?,
     val rating: Int,
     val comment: String?,
     val createdAt: String
 )
 
-data class UpdateReviewRequest(
-    val rating: Int,
-    val comment: String?
-)
-
-data class AddReviewRequest(
+data class ReviewRequest(
     val rating: Int,
     val comment: String?
 )

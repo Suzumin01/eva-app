@@ -8,6 +8,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
+import androidx.compose.ui.draw.clip
+import com.eva.app.presentation.components.EvaType
 import com.eva.app.presentation.components.IconCircle
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -48,6 +50,14 @@ class ConsentViewModel @Inject constructor(
             onDone()
         }
     }
+
+    // Пропустить — помечаем экран как показанный, не трогаем существующие согласия
+    fun skip(onDone: () -> Unit) {
+        viewModelScope.launch {
+            tokenManager.markConsentShown()
+            onDone()
+        }
+    }
 }
 
 @Composable
@@ -76,19 +86,22 @@ fun ConsentScreen(
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Spacer(Modifier.height(40.dp))
-            Surface(shape = RoundedCornerShape(24.dp), color = Color.White.copy(alpha = 0.2f),
-                modifier = Modifier.size(80.dp)) {
-                Box(contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.PrivacyTip, null, tint = Color.White,
-                        modifier = Modifier.size(48.dp))
-                }
+            Box(
+                modifier = Modifier
+                    .size(80.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color.White.copy(alpha = 0.2f)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(Icons.Default.PrivacyTip, null, tint = Color.White,
+                    modifier = Modifier.size(48.dp))
             }
             Spacer(Modifier.height(16.dp))
             Text(stringResource(R.string.consent_screen_title),
                 color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
             Text(stringResource(R.string.consent_screen_subtitle),
                 color = Color.White.copy(alpha = 0.85f),
-                style = MaterialTheme.typography.bodyMedium,
+                style = EvaType.cardSub,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.padding(top = 8.dp, bottom = 24.dp))
 
@@ -125,7 +138,7 @@ fun ConsentScreen(
 
                     Spacer(Modifier.height(6.dp))
                     Text(stringResource(R.string.consent_required_hint),
-                        style = MaterialTheme.typography.labelSmall,
+                        style = EvaType.cardMeta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant)
 
                     Spacer(Modifier.height(20.dp))
@@ -144,7 +157,7 @@ fun ConsentScreen(
                     Spacer(Modifier.height(10.dp))
 
                     OutlinedButton(
-                        onClick  = { viewModel.save(false, false, false) { onDone() } },
+                        onClick  = { viewModel.skip { onDone() } },
                         modifier = Modifier.fillMaxWidth().height(48.dp),
                         shape    = RoundedCornerShape(50)
                     ) {
@@ -154,7 +167,7 @@ fun ConsentScreen(
                     if (!canProceed) {
                         Spacer(Modifier.height(8.dp))
                         Text(stringResource(R.string.consent_required_warning),
-                            style = MaterialTheme.typography.labelSmall,
+                            style = EvaType.cardMeta,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                             modifier = Modifier.fillMaxWidth())
@@ -177,15 +190,15 @@ fun ConsentItem(
         Spacer(Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(title, fontWeight = FontWeight.SemiBold,
-                style = MaterialTheme.typography.bodyMedium)
+                style = EvaType.bodyText)
             Spacer(Modifier.height(4.dp))
-            Text(description, style = MaterialTheme.typography.bodySmall,
+            Text(description, style = EvaType.cardMeta,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
             Row(verticalAlignment = Alignment.CenterVertically,
                 modifier = Modifier.padding(top = 6.dp)) {
                 Checkbox(checked = checked, onCheckedChange = onChecked)
                 Text(stringResource(R.string.consent_accept_label),
-                    style = MaterialTheme.typography.bodySmall,
+                    style = EvaType.cardMeta,
                     modifier = Modifier.padding(start = 4.dp))
             }
         }
@@ -241,9 +254,9 @@ private fun ConsentGateContent(
                         tint = MaterialTheme.colorScheme.primary)
                     Spacer(Modifier.height(12.dp))
                     Text(title, fontWeight = FontWeight.Bold,
-                        style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center)
+                        style = EvaType.sheetTitle, textAlign = TextAlign.Center)
                     Spacer(Modifier.height(8.dp))
-                    Text(text, style = MaterialTheme.typography.bodySmall,
+                    Text(text, style = EvaType.cardMeta,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center)
                     Spacer(Modifier.height(16.dp))

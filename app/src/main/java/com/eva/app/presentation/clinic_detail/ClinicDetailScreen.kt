@@ -98,7 +98,7 @@ fun ClinicDetailScreen(
                     modifier            = Modifier
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp))
-                        .background(Brush.linearGradient(EvaGradients.clinics))
+                        .background(Brush.linearGradient(EvaGradients.doctors))
                         .statusBarsPadding()
                         .padding(start = 20.dp, end = 20.dp, top = 56.dp, bottom = 28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
@@ -171,12 +171,11 @@ fun ClinicDetailScreen(
                     modifier = Modifier.padding(horizontal = 16.dp)
                 )
                 Spacer(Modifier.height(8.dp))
-                Surface(
-                    shape    = RoundedCornerShape(16.dp),
-                    border   = androidx.compose.foundation.BorderStroke(
-                        1.dp, MaterialTheme.colorScheme.outlineVariant
-                    ),
-                    modifier = Modifier
+                Card(
+                    shape     = RoundedCornerShape(16.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                    colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    modifier  = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp)
                 ) {

@@ -38,6 +38,7 @@ class TokenManager @Inject constructor(
         private val CONSENT_PRIVACY  = booleanPreferencesKey("consent_privacy")
         private val CONSENT_SHOWN    = booleanPreferencesKey("consent_shown")
         private val ONBOARDING_DONE  = booleanPreferencesKey("onboarding_done")
+        private val HEALTH_SETUP_DONE = booleanPreferencesKey("health_setup_done")
         private val DARK_THEME       = booleanPreferencesKey("dark_theme")
         private val FAVORITES_KEY    = stringPreferencesKey("favorite_doctors")
         private val REFRESH_TOKEN_KEY = stringPreferencesKey("refresh_token")
@@ -45,7 +46,6 @@ class TokenManager @Inject constructor(
         // Health data — хранится локально (нет backend endpoint)
         private val ALLERGIES_KEY    = stringPreferencesKey("health_allergies")
         private val CHRONIC_KEY      = stringPreferencesKey("health_chronic")
-        private val INSURANCE_KEY    = stringPreferencesKey("health_insurance")
         private val DOB_KEY          = stringPreferencesKey("health_dob")
     }
 
@@ -58,11 +58,11 @@ class TokenManager @Inject constructor(
     val consentPrivacy:  Flow<Boolean>  = context.dataStore.data.map { it[CONSENT_PRIVACY] == true }
     val consentShown:    Flow<Boolean>  = context.dataStore.data.map { it[CONSENT_SHOWN] == true }
     val onboardingDone:  Flow<Boolean>  = context.dataStore.data.map { it[ONBOARDING_DONE] == true }
+    val healthSetupDone: Flow<Boolean>  = context.dataStore.data.map { it[HEALTH_SETUP_DONE] == true }
     val darkTheme:       Flow<Boolean>  = context.dataStore.data.map { it[DARK_THEME] == true }
     val favoriteDoctors: Flow<String>   = context.dataStore.data.map { it[FAVORITES_KEY] ?: "[]" }
     val allergies:       Flow<String>   = context.dataStore.data.map { it[ALLERGIES_KEY] ?: "" }
     val chronicDiseases: Flow<String>   = context.dataStore.data.map { it[CHRONIC_KEY] ?: "" }
-    val insurancePolicy: Flow<String>   = context.dataStore.data.map { it[INSURANCE_KEY] ?: "" }
     val dateOfBirth:     Flow<String>   = context.dataStore.data.map { it[DOB_KEY] ?: "" }
 
     val requiredConsentAccepted: Flow<Boolean> = context.dataStore.data.map {
@@ -106,8 +106,16 @@ class TokenManager @Inject constructor(
         }
     }
 
+    suspend fun markConsentShown() {
+        context.dataStore.edit { it[CONSENT_SHOWN] = true }
+    }
+
     suspend fun setOnboardingDone() {
         context.dataStore.edit { it[ONBOARDING_DONE] = true }
+    }
+
+    suspend fun setHealthSetupDone() {
+        context.dataStore.edit { it[HEALTH_SETUP_DONE] = true }
     }
 
     suspend fun setDarkTheme(enabled: Boolean) {
@@ -118,13 +126,10 @@ class TokenManager @Inject constructor(
         context.dataStore.edit { it[FAVORITES_KEY] = json }
     }
 
-    suspend fun saveHealthData(
-        allergies: String, chronic: String, insurance: String, dob: String
-    ) {
+    suspend fun saveHealthData(allergies: String, chronic: String, dob: String) {
         context.dataStore.edit {
             it[ALLERGIES_KEY] = allergies
             it[CHRONIC_KEY]   = chronic
-            it[INSURANCE_KEY] = insurance
             it[DOB_KEY]       = dob
         }
     }

@@ -25,7 +25,8 @@ android {
 
     buildTypes {
         release {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
@@ -90,6 +91,9 @@ dependencies {
     // Coil (загрузка изображений)
     implementation("io.coil-kt:coil-compose:2.5.0")
 
+    // Splash Screen API
+    implementation("androidx.core:core-splashscreen:1.0.1")
+
     // Coroutines
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
 
@@ -99,7 +103,7 @@ dependencies {
     implementation("androidx.room:room-ktx:$roomVersion")
     kapt("androidx.room:room-compiler:$roomVersion")
 
-    // SwipeRefresh / PullToRefresh (Material3 experimental)
+    // Material3 override — PullToRefreshBox доступен с 1.3.0, BOM 2024.02.00 даёт 1.2.0
     implementation("androidx.compose.material3:material3:1.3.1")
 
     // Firebase

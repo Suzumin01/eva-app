@@ -26,6 +26,9 @@ interface EvaApi {
     @POST("auth/photo")
     suspend fun uploadPhoto(@Part photo: MultipartBody.Part): Response<AvatarUrlResponse>
 
+    @DELETE("auth/photo")
+    suspend fun deletePhoto(): Response<Map<String, String>>
+
     @POST("auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<ForgotPasswordResponse>
 
@@ -50,7 +53,7 @@ interface EvaApi {
     @POST("doctors/{id}/reviews")
     suspend fun addReview(
         @Path("id") id: Int,
-        @Body request: AddReviewRequest
+        @Body request: ReviewRequest
     ): Response<Map<String, String>>
 
     @GET("specializations")
@@ -72,7 +75,7 @@ interface EvaApi {
     @POST("auth/fcm-token")
     suspend fun saveFcmToken(@Body request: FcmTokenRequest): Response<Map<String, String>>
 
-    @DELETE("auth/fcm-token")
+    @HTTP(method = "DELETE", path = "auth/fcm-token", hasBody = true)
     suspend fun deleteFcmToken(@Body request: FcmTokenRequest): Response<Map<String, String>>
 
     @GET("appointments")
@@ -101,7 +104,7 @@ interface EvaApi {
     @PATCH("doctors/reviews/{reviewId}")
     suspend fun updateReview(
         @Path("reviewId") reviewId: String,
-        @Body request: UpdateReviewRequest
+        @Body request: ReviewRequest
     ): Response<Map<String, String>>
 
     @DELETE("doctors/reviews/{reviewId}")
@@ -120,6 +123,12 @@ interface EvaApi {
 
     @DELETE("documents/{id}")
     suspend fun deleteDocument(@Path("id") id: String): Response<Map<String, String>>
+
+    @PATCH("documents/{id}")
+    suspend fun updateDocument(
+        @Path("id") id: String,
+        @Body body: UpdateDocumentRequest
+    ): Response<Map<String, String>>
 
     @GET("notifications")
     suspend fun getNotifications(

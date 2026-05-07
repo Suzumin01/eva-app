@@ -1,11 +1,11 @@
 package com.eva.app.presentation.clinics
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import coil.compose.SubcomposeAsyncImage
 import androidx.compose.foundation.lazy.LazyColumn
@@ -34,6 +34,7 @@ import com.eva.app.presentation.components.ClinicCardSkeleton
 import com.eva.app.presentation.components.IconCircle
 import com.eva.app.presentation.components.SpecCardSkeleton
 import com.eva.app.util.Resource
+import com.eva.app.presentation.components.EvaGradients
 import com.eva.app.presentation.components.EvaType
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -134,7 +135,7 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
             .fillMaxWidth()
             .padding(horizontal = 16.dp, vertical = 6.dp),
         shape      = RoundedCornerShape(16.dp),
-        elevation  = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation  = CardDefaults.cardElevation(defaultElevation = 1.dp),
         colors     = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(
@@ -161,19 +162,6 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
                         maxLines = 1
                     )
                 }
-                clinic.rating?.let { rating ->
-                    Spacer(Modifier.height(6.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Default.Star, null,
-                            modifier = Modifier.size(13.dp),
-                            tint     = androidx.compose.ui.graphics.Color(0xFFFFC107))
-                        Spacer(Modifier.width(3.dp))
-                        Text(
-                            rating,
-                            style = EvaType.cardMeta
-                        )
-                    }
-                }
             }
         }
     }
@@ -181,31 +169,29 @@ fun ClinicCard(clinic: ClinicResponse, onClick: () -> Unit) {
 
 @Composable
 fun ClinicAvatar(logoUrl: String?, size: androidx.compose.ui.unit.Dp = 80.dp) {
-    val base = com.eva.app.BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1")
+    val base = remember { com.eva.app.BuildConfig.BASE_URL.trimEnd('/').removeSuffix("/api/v1") }
     Box(
         modifier         = Modifier
             .size(size)
-            .border(2.5.dp, MaterialTheme.colorScheme.primary, CircleShape)
-            .padding(3.dp)
             .clip(CircleShape)
-            .background(MaterialTheme.colorScheme.primaryContainer),
+            .background(Brush.linearGradient(EvaGradients.doctors)),
         contentAlignment = Alignment.Center
     ) {
         if (logoUrl != null) {
             SubcomposeAsyncImage(
                 model   = "$base$logoUrl",
                 contentDescription = null,
-                modifier = Modifier.fillMaxSize().clip(CircleShape),
+                modifier = Modifier.fillMaxSize(),
                 loading = { Icon(Icons.Default.LocalHospital, null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.White,
                     modifier = Modifier.size((size.value * 0.45f).dp)) },
                 error   = { Icon(Icons.Default.LocalHospital, null,
-                    tint = MaterialTheme.colorScheme.primary,
+                    tint = Color.White,
                     modifier = Modifier.size((size.value * 0.45f).dp)) }
             )
         } else {
             Icon(Icons.Default.LocalHospital, null,
-                tint     = MaterialTheme.colorScheme.primary,
+                tint     = Color.White,
                 modifier = Modifier.size((size.value * 0.45f).dp))
         }
     }
@@ -282,7 +268,7 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
                                 .fillMaxWidth()
                                 .padding(horizontal = 16.dp, vertical = 6.dp),
                             shape     = RoundedCornerShape(16.dp),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
                             colors    = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
                         ) {
                             Row(
@@ -294,14 +280,6 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(s.name,
                                         style = EvaType.cardTitle)
-                                    if (s.desc.isNotBlank()) {
-                                        Spacer(Modifier.height(3.dp))
-                                        Text(s.desc,
-                                            style    = EvaType.cardMeta,
-                                            color    = MaterialTheme.colorScheme.onSurfaceVariant,
-                                            maxLines = 1,
-                                            overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis)
-                                    }
                                 }
                             }
                         }
