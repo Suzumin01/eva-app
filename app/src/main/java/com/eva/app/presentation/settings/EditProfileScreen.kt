@@ -101,7 +101,7 @@ class EditProfileViewModel @Inject constructor(
 
     fun save(
         fullName: String, phone: String,
-        allergies: String, chronic: String, insurance: String, dob: String
+        allergies: String, chronic: String, dob: String
     ) {
         viewModelScope.launch {
             _isSaving.value = true
@@ -116,8 +116,7 @@ class EditProfileViewModel @Inject constructor(
                 phone           = phoneDigits.ifBlank { null },
                 dateOfBirth     = dobForServer,
                 allergies       = allergies.trim(),
-                chronicDiseases = chronic.trim(),
-                insurancePolicy = insurance.trim()
+                chronicDiseases = chronic.trim()
             )) {
                 is Resource.Success -> {
                     r.data?.fullName?.let { tokenManager.saveUserName(it) }
@@ -153,7 +152,6 @@ fun EditProfileScreen(
     var dob         by remember { mutableStateOf("") }
     var allergies   by remember { mutableStateOf("") }
     var chronic     by remember { mutableStateOf("") }
-    var insurance   by remember { mutableStateOf("") }
     var initialized by remember { mutableStateOf(false) }
 
     LaunchedEffect(profile) {
@@ -163,7 +161,6 @@ fun EditProfileScreen(
             phone     = p.phone?.filter { it.isDigit() } ?: ""
             allergies = p.allergies ?: ""
             chronic   = p.chronicDiseases ?: ""
-            insurance = p.insurancePolicy ?: ""
             dob = p.dateOfBirth?.let { iso ->
                 val parts = iso.split("-")
                 if (parts.size == 3) "${parts[2]}.${parts[1]}.${parts[0]}" else ""
@@ -177,8 +174,6 @@ fun EditProfileScreen(
 
     val phoneDigits = phone.filter { it.isDigit() }
     val phoneValid  = phoneDigits.isEmpty() || phoneDigits.length == 11
-    val insurDigits = insurance.filter { it.isDigit() }
-    val insurValid  = insurance.isEmpty() || insurDigits.length in listOf(0, 16, 20)
     val nameValid   = fullName.trim().length >= 2
     val canSave     = nameValid && phoneValid && !isSaving
 
@@ -209,7 +204,7 @@ fun EditProfileScreen(
                 },
                 actions = {
                     TextButton(
-                        onClick  = { viewModel.save(fullName, phone, allergies, chronic, insurance, dob) },
+                        onClick  = { viewModel.save(fullName, phone, allergies, chronic, dob) },
                         enabled  = canSave
                     ) {
                         if (isSaving) CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -261,7 +256,7 @@ fun EditProfileScreen(
                     leadingIcon   = { Icon(Icons.Default.Phone, null, Modifier.size(18.dp)) },
                     placeholder   = { Text("+7 (___) ___-__-__") },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone),
-                    visualTransformation = PhoneVisualTransformation(),
+                    visualTransformation = remember { PhoneVisualTransformation() },
                     isError       = !phoneValid,
                     supportingText = when {
                         !phoneValid -> {{ Text(stringResource(R.string.edit_profile_phone_error)) }}
@@ -277,7 +272,7 @@ fun EditProfileScreen(
                     val d = dobDigits.take(2).toIntOrNull() ?: 0
                     val m = dobDigits.drop(2).take(2).toIntOrNull() ?: 0
                     val y = dobDigits.drop(4).toIntOrNull() ?: 0
-                    d in 1..31 && m in 1..12 && y in 1900..2025
+                    d in 1..31 && m in 1..12 && y in 1900..java.util.Calendar.getInstance().get(java.util.Calendar.YEAR)
                 })
                 OutlinedTextField(
                     value         = dob,
@@ -306,29 +301,6 @@ fun EditProfileScreen(
                             {{ Text(stringResource(R.string.edit_profile_dob_error)) }}
                         else ->
                             {{ Text(stringResource(R.string.edit_profile_dob_hint)) }}
-                    },
-                    modifier      = Modifier.fillMaxWidth(),
-                    shape         = RoundedCornerShape(10.dp),
-                    singleLine    = true
-                )
-            }
-
-            EditSection(stringResource(R.string.edit_profile_section_insurance)) {
-                OutlinedTextField(
-                    value         = insurance,
-                    onValueChange = { new ->
-                        val digits = new.filter { it.isDigit() }.take(20)
-                        insurance = digits
-                    },
-                    label         = { Text(stringResource(R.string.edit_profile_insurance_label)) },
-                    leadingIcon   = { Icon(Icons.Default.CardMembership, null, Modifier.size(18.dp)) },
-                    placeholder   = { Text(stringResource(R.string.edit_profile_insurance_placeholder)) },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    isError       = !insurValid,
-                    supportingText = when {
-                        !insurValid -> {{ Text(stringResource(R.string.edit_profile_insurance_error)) }}
-                        insurance.isNotEmpty() -> {{ Text(stringResource(R.string.edit_profile_insurance_count, insurDigits.length)) }}
-                        else -> null
                     },
                     modifier      = Modifier.fillMaxWidth(),
                     shape         = RoundedCornerShape(10.dp),
@@ -365,7 +337,7 @@ fun EditProfileScreen(
 
             Spacer(Modifier.height(4.dp))
             Button(
-                onClick  = { viewModel.save(fullName, phone, allergies, chronic, insurance, dob) },
+                onClick  = { viewModel.save(fullName, phone, allergies, chronic, dob) },
                 enabled  = canSave,
                 modifier = Modifier.fillMaxWidth().height(56.dp),
                 shape    = RoundedCornerShape(50)
