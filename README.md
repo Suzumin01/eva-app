@@ -47,6 +47,7 @@ buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
 | Settings | `/settings` | Редактирование профиля, медкарта |
 | Notifications | `/notifications` | Уведомления |
 | Documents | `/documents` | Медицинские документы |
+| Health Setup | `/health-setup` | Заполнение медданных (аллергии, хронические болезни) |
 
 ## Архитектура
 
@@ -75,6 +76,9 @@ MainActivity.kt         ← NavController, bottom navigation, FCM deep links
 - **Coil** — загрузка изображений (фото врачей, аватар пользователя)
 - **DataStore** — хранение токенов и настроек
 - **Firebase Messaging** — push-уведомления
+- **Dark theme** — полная поддержка тёмной темы с M3 80-tone цветами
+- **Slide transitions** — анимации горизонтального слайда между экранами
+- **Avatar/initials** — фото пользователя и врача везде; инициалы с цветом по хешу имени как fallback
 
 ## Тестирование
 
