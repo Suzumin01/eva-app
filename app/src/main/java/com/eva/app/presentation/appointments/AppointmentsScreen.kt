@@ -11,6 +11,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -349,7 +350,7 @@ fun AppointmentBottomSheet(
             Spacer(Modifier.height(14.dp))
             HorizontalDivider()
             Spacer(Modifier.height(14.dp))
-            SheetInfoRow(Icons.Default.Notes, stringResource(R.string.appointment_detail_note), it)
+            SheetInfoRow(Icons.AutoMirrored.Filled.Notes, stringResource(R.string.appointment_detail_note), it)
         }
 
         if (a.status == "completed") {

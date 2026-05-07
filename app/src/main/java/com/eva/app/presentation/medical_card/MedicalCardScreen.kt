@@ -14,6 +14,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -253,7 +254,7 @@ fun MedicalCardScreen(
                     overflow = TextOverflow.Ellipsis
                 )
                 HorizontalDivider()
-                DocMenuAction(Icons.Default.OpenInNew, stringResource(R.string.doc_action_open)) {
+                DocMenuAction(Icons.AutoMirrored.Filled.OpenInNew, stringResource(R.string.doc_action_open)) {
                     contextMenuDoc = null
                     when (doc.fileType) {
                         "image" -> galleryStartDoc = doc
@@ -312,7 +313,7 @@ fun MedicalCardScreen(
         topBar = {
             TopAppBar(
                 title = { Text(stringResource(R.string.profile_menu_medical_card), style = EvaType.cardTitle) },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) } },
+                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) } },
                 windowInsets = WindowInsets(0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
             )

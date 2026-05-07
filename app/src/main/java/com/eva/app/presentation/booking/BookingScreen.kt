@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -295,7 +296,7 @@ fun BookingScreen(
                     onClick  = onBack,
                     modifier = Modifier.statusBarsPadding().padding(4.dp)
                 ) {
-                    Icon(Icons.Default.ArrowBack, null)
+                    Icon(Icons.AutoMirrored.Filled.ArrowBack, null)
                 }
                 Box(
                     modifier         = Modifier.weight(1f).fillMaxWidth(),
@@ -397,7 +398,7 @@ fun BookingScreen(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, null, tint = Color.White)
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, null, tint = Color.White)
                     }
                 }
             }
@@ -512,14 +513,14 @@ private fun DateSelectorRow(
                             Text(
                                 formatDateLabel(date),
                                 fontWeight = if (isSel) FontWeight.Bold else FontWeight.Normal,
-                                style      = MaterialTheme.typography.labelMedium
+                                style      = EvaType.cardMeta
                             )
                             Text(
                                 if (dateSlots != null)
                                     pluralStringResource(R.plurals.booking_slots_count, dateSlots, dateSlots)
                                 else
                                     stringResource(R.string.booking_slots_loading),
-                                style = MaterialTheme.typography.labelSmall,
+                                style = EvaType.heroStatLabel,
                                 color = if (isSel) MaterialTheme.colorScheme.onSecondaryContainer
                                         else MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -543,7 +544,7 @@ private fun DateSelectorRow(
                         Icon(Icons.Default.ChevronRight, null, Modifier.size(16.dp))
                         Spacer(Modifier.width(4.dp))
                         Text(stringResource(R.string.booking_more_dates),
-                            style = MaterialTheme.typography.labelMedium)
+                            style = EvaType.cardMeta)
                     }
                 }
             }

@@ -12,6 +12,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -99,7 +100,7 @@ class ProfileViewModel @Inject constructor(
             if (file != null) {
                 when (val r = authRepository.uploadPhoto(file)) {
                     is Resource.Success -> loadProfile()
-                    is Resource.Error   -> _photoError.value = r.message ?: "Ошибка загрузки фото"
+                    is Resource.Error   -> _photoError.value = r.message
                     else -> {}
                 }
                 file.delete()
@@ -116,7 +117,7 @@ class ProfileViewModel @Inject constructor(
             _photoError.value = null
             when (val r = authRepository.deletePhoto()) {
                 is Resource.Success -> loadProfile()
-                is Resource.Error   -> _photoError.value = r.message ?: context.getString(R.string.profile_photo_error)
+                is Resource.Error   -> _photoError.value = r.message
                 else -> {}
             }
             _photoUploading.value = false
@@ -373,7 +374,7 @@ fun ProfileScreen(
             Spacer(Modifier.height(8.dp))
 
             ProfileMenuCard(
-                icon       = Icons.Default.Logout,
+                icon       = Icons.AutoMirrored.Filled.Logout,
                 iconTint   = MaterialTheme.colorScheme.error,
                 title      = stringResource(R.string.profile_menu_logout),
                 subtitle   = stringResource(R.string.profile_menu_logout_sub),

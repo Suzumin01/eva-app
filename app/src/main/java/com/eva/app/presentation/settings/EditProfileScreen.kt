@@ -9,6 +9,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -92,7 +93,7 @@ class EditProfileViewModel @Inject constructor(
         viewModelScope.launch {
             when (val r = authRepository.getMe()) {
                 is Resource.Success -> _profile.value = r.data
-                is Resource.Error   -> _error.value = r.message ?: context.getString(R.string.edit_profile_load_error)
+                is Resource.Error   -> _error.value = r.message
                 else -> {}
             }
             _profileLoading.value = false
@@ -119,10 +120,10 @@ class EditProfileViewModel @Inject constructor(
                 chronicDiseases = chronic.trim()
             )) {
                 is Resource.Success -> {
-                    r.data?.fullName?.let { tokenManager.saveUserName(it) }
+                    r.data.fullName?.let { tokenManager.saveUserName(it) }
                     _saved.value = true
                 }
-                is Resource.Error -> _error.value = r.message ?: context.getString(R.string.edit_profile_save_error)
+                is Resource.Error -> _error.value = r.message
                 else -> {}
             }
             _isSaving.value = false
@@ -200,7 +201,7 @@ fun EditProfileScreen(
                         style = EvaType.cardTitle)
                 },
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
                 },
                 actions = {
                     TextButton(

@@ -13,6 +13,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material3.*
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.*
@@ -96,7 +97,7 @@ fun ClinicsScreen(
             TopAppBar(
                 title = {},
                 navigationIcon = {
-                    IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                    IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
                 },
                 windowInsets = WindowInsets(0),
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent)
@@ -247,7 +248,7 @@ fun SpecializationsScreen(onBack: () -> Unit, onSpecClick: (Int) -> Unit) {
         TopAppBar(
             title = {},
             navigationIcon = {
-                IconButton(onClick = onBack) { Icon(Icons.Default.ArrowBack, null) }
+                IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, null) }
             },
             colors = TopAppBarDefaults.topAppBarColors(containerColor = Color.Transparent))
     }) { padding ->
