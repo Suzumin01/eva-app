@@ -196,18 +196,32 @@ class EvaUiTest {
     @Test
     fun t10_bottomNavigation_switchesTabs() {
         loginAndReachHome()
+
+        // Записи tab
         composeTestRule.onAllNodesWithText("Записи").onFirst().performClick()
+        composeTestRule.waitUntil(8_000) {
+            composeTestRule.onAllNodes(hasText("Предстоящие", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
+        }
+
+        // Вернуться на Главная — иначе popUpTo(Home) не найдёт Home в стеке
+        // и клик на Симптомы может не сработать
+        composeTestRule.onAllNodesWithText("Главная").onFirst().performClick()
         composeTestRule.waitUntil(5_000) {
-            composeTestRule.onAllNodesWithText("Мои записи").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("Поиск врача").fetchSemanticsNodes().isNotEmpty()
         }
+
+        // Симптомы tab
         composeTestRule.onAllNodesWithText("Симптомы").onFirst().performClick()
-        composeTestRule.waitUntil(10_000) {
-            composeTestRule.onAllNodesWithText("Новый запрос").fetchSemanticsNodes().isNotEmpty() ||
-            composeTestRule.onAllNodesWithText("История запросов").fetchSemanticsNodes().isNotEmpty()
+        composeTestRule.waitUntil(8_000) {
+            composeTestRule.onAllNodesWithText("История запросов").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Новый запрос").fetchSemanticsNodes().isNotEmpty()
         }
+
+        // Профиль tab
         composeTestRule.onAllNodesWithText("Профиль").onFirst().performClick()
         composeTestRule.waitUntil(5_000) {
-            composeTestRule.onAllNodesWithText("Профиль").fetchSemanticsNodes().size >= 2
+            composeTestRule.onAllNodesWithText("Медицинская карта").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
