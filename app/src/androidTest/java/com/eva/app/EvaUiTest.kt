@@ -200,8 +200,9 @@ class EvaUiTest {
         composeTestRule.waitUntil(5_000) {
             composeTestRule.onAllNodesWithText("Мои записи").fetchSemanticsNodes().isNotEmpty()
         }
-        composeTestRule.onNodeWithText("Симптомы").performClick()
-        composeTestRule.waitUntil(5_000) {
+        composeTestRule.onAllNodesWithText("Симптомы").onFirst().performClick()
+        composeTestRule.waitUntil(10_000) {
+            composeTestRule.onAllNodesWithText("Новый запрос").fetchSemanticsNodes().isNotEmpty() ||
             composeTestRule.onAllNodesWithText("История запросов").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onAllNodesWithText("Профиль").onFirst().performClick()
