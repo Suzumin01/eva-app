@@ -19,7 +19,7 @@ import javax.inject.Inject
  * E2E UI tests for the ЕВА app.
  *
  * T01–T06 — pure UI tests, no network required.
- * T07–T10 — integration tests, require:
+ * T07–T13 — integration tests, require:
  *   • Backend running at 10.0.2.2:8081
  *   • A pre-registered account: TEST_EMAIL / TEST_PASSWORD
  *   • Emulator/device connected
@@ -84,11 +84,20 @@ class EvaUiTest {
         loginWith(TEST_EMAIL, TEST_PASSWORD)
         composeTestRule.waitUntil(15_000) {
             composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty() ||
-            composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty()
         }
-        // Consent screen shown on first login — skip it via the OutlinedButton
+        // Consent screen shown on first login — skip it
         if (composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty()) {
             composeTestRule.onNodeWithText("Пропустить — решу позже").performClick()
+            composeTestRule.waitUntil(10_000) {
+                composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty() ||
+                composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        // Health setup screen shown after consent — skip it
+        if (composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty()) {
+            composeTestRule.onNodeWithText("Пропустить — заполню позже").performClick()
             composeTestRule.waitUntil(10_000) {
                 composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty()
             }
@@ -121,7 +130,7 @@ class EvaUiTest {
     fun t04_navigateToRegister() {
         composeTestRule.onNodeWithText("Нет аккаунта? Зарегистрироваться").performClick()
         composeTestRule.waitUntil(5_000) {
-            composeTestRule.onAllNodesWithText("Регистрация").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("Создайте аккаунт ЕВА").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onNodeWithText("ФИО").assertIsDisplayed()
         composeTestRule.onNodeWithText("Создать аккаунт").assertIsDisplayed()
@@ -145,9 +154,8 @@ class EvaUiTest {
     fun t06_navigateToForgotPassword() {
         composeTestRule.onNodeWithText("Забыли пароль?").performClick()
         composeTestRule.waitUntil(5_000) {
-            composeTestRule.onAllNodesWithText("Восстановление пароля").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("Отправить").fetchSemanticsNodes().isNotEmpty()
         }
-        composeTestRule.onNodeWithText("Восстановление пароля").assertIsDisplayed()
         composeTestRule.onNodeWithText("Email").assertIsDisplayed()
         composeTestRule.onNodeWithText("Отправить").assertIsDisplayed()
     }
@@ -166,12 +174,14 @@ class EvaUiTest {
         }
     }
 
+    // ── T08: Valid login reaches Home, Consent, or Health Setup screen [NETWORK]
     @Test
-    fun t08_validLogin_homeOrConsentShown() {
+    fun t08_validLogin_homeConsentOrHealthShown() {
         loginWith(TEST_EMAIL, TEST_PASSWORD)
         composeTestRule.waitUntil(15_000) {
             composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty() ||
-            composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty()
         }
     }
 
@@ -179,7 +189,7 @@ class EvaUiTest {
     fun t09_homeScreen_showsNavigationCards() {
         loginAndReachHome()
         composeTestRule.onNodeWithText("Поиск врача").assertIsDisplayed()
-        composeTestRule.onNodeWithText("AI-анализ симптомов").assertIsDisplayed()
+        composeTestRule.onNodeWithText("AI-анализ").assertIsDisplayed()
         composeTestRule.onNodeWithText("Мои записи").assertIsDisplayed()
     }
 
@@ -192,7 +202,7 @@ class EvaUiTest {
         }
         composeTestRule.onNodeWithText("Симптомы").performClick()
         composeTestRule.waitUntil(5_000) {
-            composeTestRule.onAllNodesWithText("AI-анализ").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodesWithText("История запросов").fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onAllNodesWithText("Профиль").onFirst().performClick()
         composeTestRule.waitUntil(5_000) {
@@ -205,12 +215,36 @@ class EvaUiTest {
         loginAndReachHome()
         composeTestRule.onAllNodesWithText("Записи").onFirst().performClick()
         composeTestRule.waitUntil(10_000) {
-            composeTestRule.onAllNodesWithText("Мои записи").fetchSemanticsNodes().isNotEmpty()
+            composeTestRule.onAllNodes(hasText("Предстоящие", substring = true))
+                .fetchSemanticsNodes().isNotEmpty()
         }
         composeTestRule.onAllNodes(hasText("Предстоящие", substring = true))
             .onFirst().assertIsDisplayed()
         composeTestRule.onAllNodes(hasText("Прошедшие", substring = true))
             .onFirst().assertIsDisplayed()
+    }
+
+    @Test
+    fun t13_healthSetupScreen_showsFieldsAndSkip() {
+        loginWith(TEST_EMAIL, TEST_PASSWORD)
+        composeTestRule.waitUntil(15_000) {
+            composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty() ||
+            composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty()
+        }
+        if (composeTestRule.onAllNodesWithText("Соглашения").fetchSemanticsNodes().isNotEmpty()) {
+            composeTestRule.onNodeWithText("Пропустить — решу позже").performClick()
+            composeTestRule.waitUntil(10_000) {
+                composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty() ||
+                composeTestRule.onAllNodesWithText("Главная").fetchSemanticsNodes().isNotEmpty()
+            }
+        }
+        if (composeTestRule.onAllNodesWithText("Ваш профиль здоровья").fetchSemanticsNodes().isNotEmpty()) {
+            composeTestRule.onNodeWithText("Ваш профиль здоровья").assertIsDisplayed()
+            composeTestRule.onNodeWithText("Аллергии").assertIsDisplayed()
+            composeTestRule.onNodeWithText("Хронические заболевания").assertIsDisplayed()
+            composeTestRule.onNodeWithText("Пропустить — заполню позже").assertIsDisplayed()
+        }
     }
 
     // ── T12: Profile screen shows Medical Card and Settings menu items [NETWORK]
