@@ -22,7 +22,7 @@
 
 ## Быстрый старт
 
-**Требования:** Android Studio, Android SDK 26+, запущенный [eva-backend](../eva-backend) на порту 8081.
+**Требования:** Android Studio, Android SDK 26+, запущенный [eva-server](https://github.com/Suzumin01/eva-server) на порту 8081.
 
 ```bash
 ./gradlew assembleDebug    # сборка APK

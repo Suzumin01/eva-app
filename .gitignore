@@ -17,3 +17,4 @@ local.properties
 # Credentials
 app/google-services.json
 .idea/vcs.xml
+Test Results*.html
