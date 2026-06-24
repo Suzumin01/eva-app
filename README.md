@@ -1,53 +1,56 @@
-# EVA Frontend
+<div align="center">
+  <h1>EVA Android</h1>
+  <p>Мобильное приложение платформы ЕВА — Единый Врачебный Ассистент</p>
 
-Android-приложение платформы ЕВА (Kotlin + Jetpack Compose).
+  ![Kotlin](https://img.shields.io/badge/Kotlin-7F52FF?logo=kotlin&logoColor=white)
+  ![Android](https://img.shields.io/badge/Android-3DDC84?logo=android&logoColor=white)
+  ![Jetpack Compose](https://img.shields.io/badge/Jetpack_Compose-4285F4?logo=jetpackcompose&logoColor=white)
+</div>
 
-## Требования
+---
 
-- Android Studio Hedgehog или новее
-- Android SDK 26+ (minSdk 26)
-- Эмулятор или устройство Android
-- Запущенный бэкенд (eva-backend) на порту 8081
+## Возможности
 
-## Конфигурация
+- Запись к врачу: выбор специализации, клиники, врача и слота
+- AI-анализ симптомов с историей и квотой
+- Push-уведомления FCM с deep link в нотификацию
+- Медицинские документы: загрузка PDF и изображений
+- Отзывы врачам (только после завершённого приёма)
+- Фото профиля, медицинская карта
+- Полная поддержка тёмной темы (M3)
+- Slide-анимации между экранами, initials-аватар как fallback
 
-URL бэкенда задаётся в `app/build.gradle.kts`:
+## Быстрый старт
 
+**Требования:** Android Studio, Android SDK 26+, запущенный [eva-backend](../eva-backend) на порту 8081.
+
+```bash
+./gradlew assembleDebug    # сборка APK
+./gradlew installDebug     # установка на эмулятор/устройство
+```
+
+URL бэкенда задан в `app/build.gradle.kts`:
 ```kotlin
 buildConfigField("String", "BASE_URL", "\"http://10.0.2.2:8081/api/v1/\"")
 ```
-
-`10.0.2.2` — localhost хост-машины из эмулятора Android. При использовании реального устройства замените на IP хоста в локальной сети.
-
-## Запуск
-
-```bash
-# Сборка debug APK
-./gradlew assembleDebug
-
-# Установить на подключённое устройство/эмулятор
-./gradlew installDebug
-```
-
-Или откройте проект в Android Studio и нажмите Run.
+`10.0.2.2` — localhost хост-машины из Android-эмулятора. На реальном устройстве замените на IP в локальной сети.
 
 ## Экраны
 
-| Экран | Путь навигации | Описание |
-|-------|---------------|----------|
-| Onboarding | `/onboarding` | Вводный экран (при отсутствии токена) |
-| Consent | `/consent` | Согласия ФЗ-152 и AI |
-| Login / Register | `/login`, `/register` | Аутентификация |
-| Home | `/home` | Главный экран (ближайшая запись, быстрые действия) |
-| Doctors | `/doctors` | Список врачей с фильтрами |
-| Doctor Detail | `/doctor/{id}` | Профиль врача, расписание, отзывы |
-| Appointments | `/appointments` | Мои записи |
-| Symptoms | `/symptoms` | AI-анализ симптомов |
-| Profile | `/profile` | Профиль (фото, выход) |
-| Settings | `/settings` | Редактирование профиля, медкарта |
-| Notifications | `/notifications` | Уведомления |
-| Documents | `/documents` | Медицинские документы |
-| Health Setup | `/health-setup` | Заполнение медданных (аллергии, хронические болезни) |
+| Экран | Описание |
+|-------|----------|
+| Onboarding | Вводный экран (при первом запуске) |
+| Consent | Согласия ФЗ-152 и AI |
+| Login / Register | Аутентификация |
+| Home | Главный экран: ближайшая запись, быстрые действия |
+| Doctors | Список врачей с фильтрами и поиском |
+| Doctor Detail | Профиль врача, расписание, отзывы |
+| Booking | Выбор даты и слота, подтверждение |
+| Appointments | Мои записи |
+| Symptoms | AI-анализ симптомов |
+| Profile / Settings | Профиль, медкарта, редактирование |
+| Notifications | Лента уведомлений |
+| Documents | Медицинские документы |
 
 ## Архитектура
 
@@ -56,48 +59,26 @@ MVVM + Hilt DI:
 ```
 data/
   api/EvaApi.kt         ← Retrofit интерфейс (50+ эндпоинтов)
-  api/Dto.kt            ← DTO для API
   local/TokenManager.kt ← DataStore (JWT, refresh-токен, настройки)
-  local/room/           ← Room DB (кэш врачей)
+  local/room/           ← Room DB (локальный кэш врачей)
   repository/           ← Репозитории (API + Room)
 di/NetworkModule.kt     ← Hilt: OkHttp (JWT interceptor + authenticator), Retrofit
 presentation/
   {feature}/            ← ViewModel + Screen по фичам
-  navigation/Screen.kt  ← Все маршруты навигации
+  navigation/Screen.kt  ← все маршруты навигации
+  components/           ← DesignSystem, переиспользуемые компоненты
 MainActivity.kt         ← NavController, bottom navigation, FCM deep links
 ```
 
-## Ключевые зависимости
-
-- **Jetpack Compose** — декларативный UI
-- **Hilt** — dependency injection
-- **Retrofit + OkHttp** — HTTP-клиент с автоматическим обновлением JWT
-- **Room** — локальный кэш врачей
-- **Coil** — загрузка изображений (фото врачей, аватар пользователя)
-- **DataStore** — хранение токенов и настроек
-- **Firebase Messaging** — push-уведомления
-- **Dark theme** — полная поддержка тёмной темы с M3 80-tone цветами
-- **Slide transitions** — анимации горизонтального слайда между экранами
-- **Avatar/initials** — фото пользователя и врача везде; инициалы с цветом по хешу имени как fallback
+**Автообновление токена:** OkHttp `Authenticator` перехватывает 401, вызывает `POST /auth/refresh` и повторяет оригинальный запрос. `navigate()` из FCM-коллектора выполняется через `withContext(Dispatchers.Main)` — OkHttp стреляет с background-треда.
 
 ## Тестирование
 
-Инструментальные тесты Espresso/Compose (13 тестов: T01–T06 чистый UI, T07–T13 E2E с бэкендом):
+13 инструментальных тестов Espresso + Hilt (T01–T06 — чистый UI, T07–T13 — E2E с бэкендом):
 
 ```bash
-# Требуется запущенный эмулятор и бэкенд (для T07–T13)
-$env:JAVA_HOME="C:\Users\nikit\.jdks\ms-17.0.15"; .\gradlew connectedAndroidTest
-# Результат: 13/13 passed ✅
+./gradlew connectedAndroidTest
+# 13/13 passed ✅
 ```
 
-Тестовый аккаунт: `testeva@mail.ru` / `Test1234!` (должен быть зарегистрирован в БД).
-
-Файлы тестов:
-- `app/src/androidTest/java/com/eva/app/EvaUiTest.kt` — 13 тест-кейсов
-- `app/src/androidTest/java/com/eva/app/HiltTestRunner.kt` — Hilt-совместимый test runner
-
-## Push-уведомления
-
-FCM-токен регистрируется при входе (`POST /auth/fcm-token`).  
-Типы уведомлений: `appointment_created`, `appointment_cancelled`, `appointment_reminder_24h`, `appointment_reminder_1h`.  
-Deep link из уведомления открывает экран `/notification/{notifId}`.
+Тестовый аккаунт: `testeva@mail.ru` / `Test1234!` (должен быть в БД).
